@@ -2,9 +2,25 @@
 import React, { useState } from 'react';
 import { Button } from "@/components/ui/button";
 import { Textarea } from '@/components/ui/textarea';
-import { Send, File, Bot, User } from 'lucide-react';
+import { 
+  Send, 
+  File, 
+  Bot, 
+  User, 
+  MessageCircle, 
+  Volume2, 
+  Music, 
+  VoiceOff 
+} from 'lucide-react';
 import Header from '@/components/Header';
 import Footer from '@/components/Footer';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { toast } from "sonner";
 
 // Типы сообщений
 type MessageType = 'user' | 'server';
@@ -86,6 +102,23 @@ const MyFiles = () => {
     }, 1000);
   };
 
+  // Обработчики для действий с файлом
+  const handleOpenChat = () => {
+    toast.success(`Открыт чат для файла "${selectedFile?.name}"`);
+  };
+
+  const handleImproveSound = () => {
+    toast.success(`Запущено улучшение звука для "${selectedFile?.name}"`);
+  };
+
+  const handleRemoveMelody = () => {
+    toast.success(`Запущено удаление мелодии из "${selectedFile?.name}"`);
+  };
+
+  const handleRemoveVoice = () => {
+    toast.success(`Запущено удаление голоса из "${selectedFile?.name}"`);
+  };
+
   // Форматирование даты
   const formatDate = (date: Date) => {
     return date.toLocaleDateString('ru-RU', {
@@ -140,12 +173,41 @@ const MyFiles = () => {
           <div className="w-full md:w-2/3 border rounded-lg shadow-sm flex flex-col">
             {selectedFile ? (
               <>
-                {/* Заголовок с именем файла */}
-                <div className="p-4 border-b">
-                  <h3 className="font-medium">{selectedFile.name}</h3>
-                  <p className="text-sm text-gray-500">
-                    {formatDate(selectedFile.date)} • {selectedFile.duration}
-                  </p>
+                {/* Заголовок с именем файла и опциями */}
+                <div className="p-4 border-b flex justify-between items-center">
+                  <div>
+                    <h3 className="font-medium">{selectedFile.name}</h3>
+                    <p className="text-sm text-gray-500">
+                      {formatDate(selectedFile.date)} • {selectedFile.duration}
+                    </p>
+                  </div>
+                  
+                  {/* Выпадающее меню с опциями для файла */}
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button variant="outline" size="sm">
+                        Опции
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end">
+                      <DropdownMenuItem onClick={handleOpenChat} className="cursor-pointer flex items-center gap-2">
+                        <MessageCircle className="h-4 w-4" />
+                        <span>Открыть чат</span>
+                      </DropdownMenuItem>
+                      <DropdownMenuItem onClick={handleImproveSound} className="cursor-pointer flex items-center gap-2">
+                        <Volume2 className="h-4 w-4" />
+                        <span>Улучшить звук</span>
+                      </DropdownMenuItem>
+                      <DropdownMenuItem onClick={handleRemoveMelody} className="cursor-pointer flex items-center gap-2">
+                        <Music className="h-4 w-4" />
+                        <span>Убрать мелодию</span>
+                      </DropdownMenuItem>
+                      <DropdownMenuItem onClick={handleRemoveVoice} className="cursor-pointer flex items-center gap-2">
+                        <VoiceOff className="h-4 w-4" />
+                        <span>Убрать голос</span>
+                      </DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
                 </div>
                 
                 {/* Сообщения */}
