@@ -1,5 +1,6 @@
 
 import React from 'react';
+import { Link } from 'react-router-dom';
 import { Button } from "@/components/ui/button";
 
 const Header = () => {
@@ -7,7 +8,7 @@ const Header = () => {
     <header className="w-full py-4 bg-white/90 backdrop-blur-md fixed top-0 z-50 border-b border-gray-100">
       <div className="container flex items-center justify-between">
         <div className="flex items-center">
-          <h1 className="text-xl font-semibold">just.audio.ai</h1>
+          <Link to="/" className="text-xl font-semibold">just.audio.ai</Link>
         </div>
         
         <nav className="hidden md:flex items-center space-x-8">
@@ -18,8 +19,12 @@ const Header = () => {
         </nav>
         
         <div className="flex items-center space-x-4">
-          <Button variant="outline" className="hidden md:inline-flex">Войти</Button>
-          <Button className="bg-black text-white hover:bg-gray-800">Регистрация</Button>
+          <Link to="/auth">
+            <Button variant="outline" className="hidden md:inline-flex">Войти</Button>
+          </Link>
+          <Link to="/auth">
+            <Button className="bg-black text-white hover:bg-gray-800">Регистрация</Button>
+          </Link>
         </div>
       </div>
     </header>
