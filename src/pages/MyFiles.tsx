@@ -1,5 +1,5 @@
 
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import { Button } from "@/components/ui/button";
 import { Textarea } from '@/components/ui/textarea';
 import { 
@@ -10,7 +10,8 @@ import {
   MessageCircle, 
   Volume2, 
   Music, 
-  VoiceOff 
+  MicOff,
+  Mic
 } from 'lucide-react';
 import Header from '@/components/Header';
 import Footer from '@/components/Footer';
@@ -38,12 +39,31 @@ interface TranscribedFile {
   name: string;
   date: Date;
   duration: string;
+  audioUrl: string; // URL к аудиофайлу
 }
 
 const mockFiles: TranscribedFile[] = [
-  { id: '1', name: 'Интервью с экспертом', date: new Date(2023, 3, 15), duration: '45:22' },
-  { id: '2', name: 'Подкаст - Выпуск 12', date: new Date(2023, 4, 2), duration: '32:18' },
-  { id: '3', name: 'Голосовая заметка', date: new Date(2023, 4, 10), duration: '5:46' },
+  { 
+    id: '1', 
+    name: 'Интервью с экспертом', 
+    date: new Date(2023, 3, 15), 
+    duration: '45:22',
+    audioUrl: 'https://cdn.freesound.org/previews/635/635096_5674468-lq.mp3'
+  },
+  { 
+    id: '2', 
+    name: 'Подкаст - Выпуск 12', 
+    date: new Date(2023, 4, 2), 
+    duration: '32:18',
+    audioUrl: 'https://cdn.freesound.org/previews/558/558807_1049638-lq.mp3'
+  },
+  { 
+    id: '3', 
+    name: 'Голосовая заметка', 
+    date: new Date(2023, 4, 10), 
+    duration: '5:46',
+    audioUrl: 'https://cdn.freesound.org/previews/626/626849_11861866-lq.mp3'
+  },
 ];
 
 // Имитация сообщений для чата
@@ -60,17 +80,20 @@ const MyFiles = () => {
   const [selectedFile, setSelectedFile] = useState<TranscribedFile | null>(null);
   const [messages, setMessages] = useState<Message[]>(initialMessages);
   const [newMessage, setNewMessage] = useState('');
+  const [showChat, setShowChat] = useState(false);
   const messagesEndRef = React.useRef<HTMLDivElement>(null);
+  const audioRef = useRef<HTMLAudioElement>(null);
 
   // Прокрутка к последнему сообщению
   React.useEffect(() => {
-    if (messagesEndRef.current) {
+    if (messagesEndRef.current && showChat) {
       messagesEndRef.current.scrollIntoView({ behavior: 'smooth' });
     }
-  }, [messages]);
+  }, [messages, showChat]);
 
   const handleFileSelect = (file: TranscribedFile) => {
     setSelectedFile(file);
+    setShowChat(false); // По умолчанию показываем аудиоплеер, а не чат
     // Сбрасываем сообщения для нового файла
     setMessages(initialMessages);
   };
@@ -103,20 +126,21 @@ const MyFiles = () => {
   };
 
   // Обработчики для действий с файлом
-  const handleOpenChat = () => {
-    toast.success(`Открыт чат для файла "${selectedFile?.name}"`);
+  const handleOpenAssistant = () => {
+    setShowChat(true);
+    toast.success(`Открыт CPT ассистент для файла "${selectedFile?.name}"`);
   };
 
-  const handleImproveSound = () => {
-    toast.success(`Запущено улучшение звука для "${selectedFile?.name}"`);
+  const handleRemoveNoise = () => {
+    toast.success(`Запущено удаление шума из "${selectedFile?.name}"`);
   };
 
   const handleRemoveMelody = () => {
     toast.success(`Запущено удаление мелодии из "${selectedFile?.name}"`);
   };
 
-  const handleRemoveVoice = () => {
-    toast.success(`Запущено удаление голоса из "${selectedFile?.name}"`);
+  const handleRemoveVocals = () => {
+    toast.success(`Запущено удаление вокала из "${selectedFile?.name}"`);
   };
 
   // Форматирование даты
@@ -169,7 +193,7 @@ const MyFiles = () => {
             </div>
           </div>
           
-          {/* Чат с расшифровкой */}
+          {/* Правая панель: аудиоплеер или чат */}
           <div className="w-full md:w-2/3 border rounded-lg shadow-sm flex flex-col">
             {selectedFile ? (
               <>
@@ -190,92 +214,150 @@ const MyFiles = () => {
                       </Button>
                     </DropdownMenuTrigger>
                     <DropdownMenuContent align="end">
-                      <DropdownMenuItem onClick={handleOpenChat} className="cursor-pointer flex items-center gap-2">
-                        <MessageCircle className="h-4 w-4" />
-                        <span>Открыть чат</span>
+                      <DropdownMenuItem onClick={handleOpenAssistant} className="cursor-pointer flex items-center gap-2">
+                        <Mic className="h-4 w-4" />
+                        <span>CPT ассистент</span>
                       </DropdownMenuItem>
-                      <DropdownMenuItem onClick={handleImproveSound} className="cursor-pointer flex items-center gap-2">
+                      <DropdownMenuItem onClick={handleRemoveNoise} className="cursor-pointer flex items-center gap-2">
                         <Volume2 className="h-4 w-4" />
-                        <span>Улучшить звук</span>
+                        <span>Удалить шум</span>
                       </DropdownMenuItem>
                       <DropdownMenuItem onClick={handleRemoveMelody} className="cursor-pointer flex items-center gap-2">
                         <Music className="h-4 w-4" />
-                        <span>Убрать мелодию</span>
+                        <span>Удалить мелодию</span>
                       </DropdownMenuItem>
-                      <DropdownMenuItem onClick={handleRemoveVoice} className="cursor-pointer flex items-center gap-2">
-                        <VoiceOff className="h-4 w-4" />
-                        <span>Убрать голос</span>
+                      <DropdownMenuItem onClick={handleRemoveVocals} className="cursor-pointer flex items-center gap-2">
+                        <MicOff className="h-4 w-4" />
+                        <span>Удалить вокал</span>
                       </DropdownMenuItem>
                     </DropdownMenuContent>
                   </DropdownMenu>
                 </div>
                 
-                {/* Сообщения */}
-                <div className="flex-1 overflow-y-auto p-4 bg-gray-50" style={{ minHeight: "300px" }}>
-                  <div className="space-y-4">
-                    {messages.map(message => (
-                      <div 
-                        key={message.id} 
-                        className={`flex gap-3 ${message.type === 'user' ? 'justify-end' : 'justify-start'}`}
-                      >
-                        {message.type === 'server' && (
-                          <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0">
-                            <Bot size={16} className="text-primary" />
+                {showChat ? (
+                  <>
+                    {/* Сообщения */}
+                    <div className="flex-1 overflow-y-auto p-4 bg-gray-50" style={{ minHeight: "300px" }}>
+                      <div className="space-y-4">
+                        {messages.map(message => (
+                          <div 
+                            key={message.id} 
+                            className={`flex gap-3 ${message.type === 'user' ? 'justify-end' : 'justify-start'}`}
+                          >
+                            {message.type === 'server' && (
+                              <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0">
+                                <Bot size={16} className="text-primary" />
+                              </div>
+                            )}
+                            
+                            <div 
+                              className={`max-w-[80%] rounded-lg p-3 ${
+                                message.type === 'user' 
+                                  ? 'bg-[#F1F0FB] text-black ml-auto' 
+                                  : 'bg-[#D3E4FD] text-black'
+                              }`}
+                            >
+                              <div className="text-sm">{message.content}</div>
+                              <div className="text-xs text-gray-500 mt-1 text-right">
+                                {formatTime(message.timestamp)}
+                              </div>
+                            </div>
+                            
+                            {message.type === 'user' && (
+                              <div className="w-8 h-8 rounded-full bg-gray-200 flex items-center justify-center flex-shrink-0">
+                                <User size={16} className="text-gray-600" />
+                              </div>
+                            )}
                           </div>
-                        )}
-                        
-                        <div 
-                          className={`max-w-[80%] rounded-lg p-3 ${
-                            message.type === 'user' 
-                              ? 'bg-[#F1F0FB] text-black ml-auto' 
-                              : 'bg-[#D3E4FD] text-black'
-                          }`}
-                        >
-                          <div className="text-sm">{message.content}</div>
-                          <div className="text-xs text-gray-500 mt-1 text-right">
-                            {formatTime(message.timestamp)}
-                          </div>
-                        </div>
-                        
-                        {message.type === 'user' && (
-                          <div className="w-8 h-8 rounded-full bg-gray-200 flex items-center justify-center flex-shrink-0">
-                            <User size={16} className="text-gray-600" />
-                          </div>
-                        )}
+                        ))}
+                        <div ref={messagesEndRef} />
                       </div>
-                    ))}
-                    <div ref={messagesEndRef} />
+                    </div>
+                    
+                    {/* Поле ввода сообщения */}
+                    <div className="p-4 border-t">
+                      <div className="flex gap-2">
+                        <Textarea 
+                          placeholder="Напишите сообщение..." 
+                          className="min-h-[60px] resize-none"
+                          value={newMessage}
+                          onChange={(e) => setNewMessage(e.target.value)}
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter' && !e.shiftKey) {
+                              e.preventDefault();
+                              handleSendMessage();
+                            }
+                          }}
+                        />
+                        <Button 
+                          onClick={handleSendMessage}
+                          disabled={!newMessage.trim()}
+                          className="h-auto"
+                        >
+                          <Send className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    </div>
+                  </>
+                ) : (
+                  /* Аудиоплеер */
+                  <div className="flex-1 flex flex-col items-center justify-center p-8">
+                    <div className="w-full max-w-3xl bg-gray-50 rounded-lg p-6 flex flex-col items-center">
+                      <h3 className="text-lg font-medium mb-4">Прослушать исходный файл</h3>
+                      
+                      <audio 
+                        ref={audioRef}
+                        controls 
+                        className="w-full mb-6" 
+                        src={selectedFile.audioUrl}
+                      >
+                        Ваш браузер не поддерживает аудио элемент.
+                      </audio>
+                      
+                      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 w-full">
+                        <Button 
+                          onClick={handleOpenAssistant}
+                          variant="outline" 
+                          className="flex items-center gap-2 h-auto py-3"
+                        >
+                          <Mic className="h-5 w-5" />
+                          <span>CPT ассистент</span>
+                        </Button>
+                        
+                        <Button 
+                          onClick={handleRemoveNoise}
+                          variant="outline" 
+                          className="flex items-center gap-2 h-auto py-3"
+                        >
+                          <Volume2 className="h-5 w-5" />
+                          <span>Удалить шум</span>
+                        </Button>
+                        
+                        <Button 
+                          onClick={handleRemoveMelody}
+                          variant="outline" 
+                          className="flex items-center gap-2 h-auto py-3"
+                        >
+                          <Music className="h-5 w-5" />
+                          <span>Удалить мелодию</span>
+                        </Button>
+                        
+                        <Button 
+                          onClick={handleRemoveVocals}
+                          variant="outline" 
+                          className="flex items-center gap-2 h-auto py-3"
+                        >
+                          <MicOff className="h-5 w-5" />
+                          <span>Удалить вокал</span>
+                        </Button>
+                      </div>
+                    </div>
                   </div>
-                </div>
-                
-                {/* Поле ввода сообщения */}
-                <div className="p-4 border-t">
-                  <div className="flex gap-2">
-                    <Textarea 
-                      placeholder="Напишите сообщение..." 
-                      className="min-h-[60px] resize-none"
-                      value={newMessage}
-                      onChange={(e) => setNewMessage(e.target.value)}
-                      onKeyDown={(e) => {
-                        if (e.key === 'Enter' && !e.shiftKey) {
-                          e.preventDefault();
-                          handleSendMessage();
-                        }
-                      }}
-                    />
-                    <Button 
-                      onClick={handleSendMessage}
-                      disabled={!newMessage.trim()}
-                      className="h-auto"
-                    >
-                      <Send className="h-4 w-4" />
-                    </Button>
-                  </div>
-                </div>
+                )}
               </>
             ) : (
               <div className="flex items-center justify-center h-full text-gray-500 p-10">
-                Выберите файл для просмотра расшифровки
+                Выберите файл для прослушивания
               </div>
             )}
           </div>
