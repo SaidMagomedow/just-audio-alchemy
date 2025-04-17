@@ -8,7 +8,7 @@ import { Form, FormField, FormItem, FormLabel, FormControl, FormMessage } from "
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
 import * as z from "zod";
-import { Google, Send } from 'lucide-react';
+import { Send, Chrome } from 'lucide-react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import AuthLayout from '@/components/AuthLayout';
 
@@ -77,7 +77,7 @@ const Auth = () => {
           
           <TabsContent value="social" className="space-y-4">
             <Button variant="outline" className="w-full justify-start gap-2" onClick={() => console.log('Google auth')}>
-              <Google size={18} />
+              <Chrome size={18} />
               <span>Войти через Google</span>
             </Button>
             
