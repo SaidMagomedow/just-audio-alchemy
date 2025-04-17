@@ -3,11 +3,8 @@ import React from 'react';
 import { Link } from 'react-router-dom';
 import { Button } from "@/components/ui/button";
 import { Folder } from "lucide-react";
-import { MyFilesDialog } from "@/components/MyFilesDialog";
 
 const Header = () => {
-  const [showFilesDialog, setShowFilesDialog] = React.useState(false);
-
   return (
     <header className="w-full py-4 bg-white/90 backdrop-blur-md fixed top-0 z-50 border-b border-gray-100">
       <div className="container flex items-center justify-between">
@@ -23,14 +20,15 @@ const Header = () => {
         </nav>
         
         <div className="flex items-center space-x-4">
-          <Button 
-            variant="outline" 
-            className="hidden md:inline-flex items-center gap-2"
-            onClick={() => setShowFilesDialog(true)}
-          >
-            <Folder size={16} />
-            Мои файлы
-          </Button>
+          <Link to="/my-files">
+            <Button 
+              variant="outline" 
+              className="hidden md:inline-flex items-center gap-2"
+            >
+              <Folder size={16} />
+              Мои файлы
+            </Button>
+          </Link>
           
           <Link to="/auth">
             <Button variant="outline" className="hidden md:inline-flex">Войти</Button>
@@ -40,8 +38,6 @@ const Header = () => {
           </Link>
         </div>
       </div>
-      
-      <MyFilesDialog open={showFilesDialog} onOpenChange={setShowFilesDialog} />
     </header>
   );
 };

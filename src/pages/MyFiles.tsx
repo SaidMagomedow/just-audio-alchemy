@@ -1,14 +1,10 @@
 
 import React, { useState } from 'react';
-import { 
-  Dialog, 
-  DialogContent, 
-  DialogHeader, 
-  DialogTitle 
-} from '@/components/ui/dialog';
-import { Button } from '@/components/ui/button';
+import { Button } from "@/components/ui/button";
 import { Textarea } from '@/components/ui/textarea';
 import { Send, File, Bot, User } from 'lucide-react';
+import Header from '@/components/Header';
+import Footer from '@/components/Footer';
 
 // Типы сообщений
 type MessageType = 'user' | 'server';
@@ -44,12 +40,7 @@ const initialMessages: Message[] = [
   }
 ];
 
-interface MyFilesDialogProps {
-  open: boolean;
-  onOpenChange: (open: boolean) => void;
-}
-
-export function MyFilesDialog({ open, onOpenChange }: MyFilesDialogProps) {
+const MyFiles = () => {
   const [selectedFile, setSelectedFile] = useState<TranscribedFile | null>(null);
   const [messages, setMessages] = useState<Message[]>(initialMessages);
   const [newMessage, setNewMessage] = useState('');
@@ -113,17 +104,18 @@ export function MyFilesDialog({ open, onOpenChange }: MyFilesDialogProps) {
   };
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-4xl h-[80vh] flex flex-col p-0 gap-0">
-        <DialogHeader className="p-6 border-b">
-          <DialogTitle className="text-xl font-semibold">Мои файлы</DialogTitle>
-        </DialogHeader>
-        
-        <div className="flex flex-1 overflow-hidden">
+    <div className="min-h-screen flex flex-col">
+      <Header />
+      <main className="flex-grow pt-20 container mx-auto px-4">
+        <h1 className="text-2xl font-bold mb-6">Мои файлы</h1>
+
+        <div className="flex flex-col md:flex-row gap-6 mb-8 min-h-[calc(100vh-250px)]">
           {/* Список файлов */}
-          <div className="w-1/3 border-r overflow-y-auto p-4">
-            <h3 className="font-medium mb-4">Расшифрованные файлы</h3>
-            <div className="space-y-2">
+          <div className="w-full md:w-1/3 border rounded-lg shadow-sm overflow-y-auto">
+            <div className="p-4 border-b">
+              <h3 className="font-medium">Расшифрованные файлы</h3>
+            </div>
+            <div className="p-2">
               {mockFiles.map(file => (
                 <div 
                   key={file.id}
@@ -145,7 +137,7 @@ export function MyFilesDialog({ open, onOpenChange }: MyFilesDialogProps) {
           </div>
           
           {/* Чат с расшифровкой */}
-          <div className="w-2/3 flex flex-col">
+          <div className="w-full md:w-2/3 border rounded-lg shadow-sm flex flex-col">
             {selectedFile ? (
               <>
                 {/* Заголовок с именем файла */}
@@ -157,7 +149,7 @@ export function MyFilesDialog({ open, onOpenChange }: MyFilesDialogProps) {
                 </div>
                 
                 {/* Сообщения */}
-                <div className="flex-1 overflow-y-auto p-4 bg-gray-50">
+                <div className="flex-1 overflow-y-auto p-4 bg-gray-50" style={{ minHeight: "300px" }}>
                   <div className="space-y-4">
                     {messages.map(message => (
                       <div 
@@ -220,13 +212,16 @@ export function MyFilesDialog({ open, onOpenChange }: MyFilesDialogProps) {
                 </div>
               </>
             ) : (
-              <div className="flex items-center justify-center h-full text-gray-500">
+              <div className="flex items-center justify-center h-full text-gray-500 p-10">
                 Выберите файл для просмотра расшифровки
               </div>
             )}
           </div>
         </div>
-      </DialogContent>
-    </Dialog>
+      </main>
+      <Footer />
+    </div>
   );
-}
+};
+
+export default MyFiles;
