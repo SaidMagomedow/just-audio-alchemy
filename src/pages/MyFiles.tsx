@@ -47,7 +47,7 @@ const MyFiles: React.FC = () => {
   // Handlers for file actions
   const handleOpenAssistant = () => {
     setShowChat(true);
-    toast.success(`Открыт CPT ассистент для файла "${selectedFile?.name}"`);
+    toast.success(`Открыт GPT ассистент для файла "${selectedFile?.name}"`);
   };
 
   const handleRemoveNoise = () => {
@@ -76,7 +76,7 @@ const MyFiles: React.FC = () => {
             onFileSelect={handleFileSelect}
           />
           
-          {/* File details panel (audio player or chat) */}
+          {/* File details panel (audio player, transcription or chat) */}
           <FileDetails 
             selectedFile={selectedFile}
             showChat={showChat}
