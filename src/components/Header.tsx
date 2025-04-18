@@ -2,7 +2,7 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
 import { Button } from "@/components/ui/button";
-import { Folder } from "lucide-react";
+import { Folder, User } from "lucide-react";
 
 const Header = () => {
   return (
@@ -27,6 +27,16 @@ const Header = () => {
             >
               <Folder size={16} />
               Мои файлы
+            </Button>
+          </Link>
+          
+          <Link to="/profile">
+            <Button 
+              variant="outline" 
+              className="hidden md:inline-flex items-center gap-2"
+            >
+              <User size={16} />
+              Профиль
             </Button>
           </Link>
           
