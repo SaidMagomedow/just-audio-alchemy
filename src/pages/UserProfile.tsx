@@ -5,13 +5,15 @@ import { Progress } from "@/components/ui/progress";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
-import { Settings, HelpCircle } from 'lucide-react';
+import { Settings, HelpCircle, Mail } from 'lucide-react';
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 
 const UserProfile = () => {
   // Mock data - replace with real data when implementing backend
   const userData = {
     name: "Алексей Иванов",
     email: "alexey@example.com",
+    avatarUrl: "https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=100&h=100&fit=crop",
     plan: "Премиум",
     subscriptionEnd: "2024-05-18",
     usage: {
@@ -34,29 +36,39 @@ const UserProfile = () => {
     <div className="min-h-screen bg-gray-50 pt-20">
       <div className="container py-8">
         <div className="max-w-4xl mx-auto space-y-6">
-          {/* Profile Header */}
-          <div className="flex justify-between items-center">
-            <div>
-              <h1 className="text-2xl font-bold">Личный кабинет</h1>
-              <p className="text-gray-600">Управляйте своей подпиской и отслеживайте использование сервиса</p>
-            </div>
-            <Sheet>
-              <SheetTrigger asChild>
-                <Button variant="outline" size="icon">
-                  <Settings className="h-4 w-4" />
-                </Button>
-              </SheetTrigger>
-              <SheetContent>
-                <SheetHeader>
-                  <SheetTitle>Настройки профиля</SheetTitle>
-                  <SheetDescription>
-                    Настройте свой профиль и предпочтения
-                  </SheetDescription>
-                </SheetHeader>
-                {/* Add settings content here */}
-              </SheetContent>
-            </Sheet>
-          </div>
+          {/* User Info Card */}
+          <Card className="border-0 shadow-sm">
+            <CardContent className="pt-6">
+              <div className="flex items-start gap-6">
+                <Avatar className="h-20 w-20">
+                  <AvatarImage src={userData.avatarUrl} alt={userData.name} />
+                  <AvatarFallback>{userData.name.split(' ').map(n => n[0]).join('')}</AvatarFallback>
+                </Avatar>
+                <div className="flex-1 space-y-1">
+                  <h2 className="text-2xl font-semibold">{userData.name}</h2>
+                  <div className="flex items-center gap-2 text-gray-500">
+                    <Mail size={16} />
+                    <span>{userData.email}</span>
+                  </div>
+                </div>
+                <Sheet>
+                  <SheetTrigger asChild>
+                    <Button variant="outline" size="icon">
+                      <Settings className="h-4 w-4" />
+                    </Button>
+                  </SheetTrigger>
+                  <SheetContent>
+                    <SheetHeader>
+                      <SheetTitle>Настройки профиля</SheetTitle>
+                      <SheetDescription>
+                        Настройте свой профиль и предпочтения
+                      </SheetDescription>
+                    </SheetHeader>
+                  </SheetContent>
+                </Sheet>
+              </div>
+            </CardContent>
+          </Card>
 
           {/* Subscription Info */}
           <Card>
