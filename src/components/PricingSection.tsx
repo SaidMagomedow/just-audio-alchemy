@@ -5,49 +5,50 @@ import { Check } from 'lucide-react';
 
 const plans = [
   {
-    name: '100 минут',
-    originalPrice: '500 ₽',
-    currentPrice: '300 ₽',
-    discount: 'Скидка 50%',
-    per: '1 час = ?',
+    name: 'Бесплатно',
+    price: '0 ₽',
+    per: 'навсегда',
     features: [
-      'Расшифровка аудио и видео',
-      'Базовая очистка звука',
-      'Экспорт в TXT, DOCX',
+      'До 60 минут записи в месяц',
+      'Базовая расшифровка аудио',
+      'Стандартное качество звука',
+      'Экспорт в TXT формат',
       'Поддержка по email'
     ],
-    cta: 'Купить за 300 рублей'
+    cta: 'Попробовать бесплатно',
+    popular: false
   },
   {
-    name: '500 минут',
-    originalPrice: '2 000 ₽',
-    currentPrice: '1 200 ₽',
-    discount: 'Скидка 60%',
-    per: '1 час = ?',
+    name: 'Премиум',
+    price: '990 ₽',
+    per: 'в месяц',
     popular: true,
     features: [
-      'Все функции базового плана',
-      'Расширенная очистка звука',
-      'Удаление вокала из аудио',
+      'До 10 часов записи в месяц',
+      'Продвинутая расшифровка аудио',
+      'Улучшенное качество звука',
+      'Удаление шума и фоновых звуков',
+      'Экспорт в PDF, DOCX, TXT',
       'ChatGPT-помощник',
       'Приоритетная поддержка'
     ],
-    cta: 'Купить за 1 200 рублей'
+    cta: 'Выбрать Premium'
   },
   {
-    name: '1 000 минут',
-    originalPrice: '4 000 ₽',
-    currentPrice: '2 000 ₽',
-    discount: 'Скидка 70%',
-    per: '1 час = ?',
+    name: 'Премиум+',
+    price: '2 490 ₽',
+    per: 'в месяц',
     features: [
-      'Все функции продвинутого плана',
-      'Генерация коротких видео',
-      'Публикация на платформах',
-      'API доступ',
-      'Выделенный менеджер'
+      'Безлимитное количество записей',
+      'Расширенная расшифровка аудио',
+      'AI-обработка звука',
+      'Удаление шума, вокала и мелодий',
+      'Все форматы экспорта',
+      'Продвинутый ChatGPT-ассистент',
+      'Выделенный менеджер',
+      'API доступ'
     ],
-    cta: 'Купить за 2 000 рублей'
+    cta: 'Выбрать Premium+'
   }
 ];
 
@@ -55,37 +56,37 @@ const PricingSection = () => {
   return (
     <section id="pricing" className="py-20 bg-gray-50">
       <div className="container">
-        <h2 className="section-heading text-center">Тарифные планы</h2>
+        <h2 className="text-3xl font-bold text-center mb-4">Тарифные планы</h2>
         <p className="text-center text-gray-600 mb-12 max-w-2xl mx-auto">
-          Выберите подходящий тариф для ваших задач. Мы предлагаем гибкую систему оплаты и специальные скидки для новых пользователей.
+          Выберите подходящий тариф для ваших задач. Оплачивайте только то, что вам действительно нужно.
         </p>
         
         <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
           {plans.map((plan, index) => (
             <div 
               key={index} 
-              className={`pricing-card relative ${plan.popular ? 'ring-2 ring-accent-orange' : ''}`}
+              className={`relative bg-white rounded-lg shadow-lg p-8 ${
+                plan.popular ? 'ring-2 ring-accent-orange transform hover:-translate-y-1' : 'hover:shadow-xl'
+              } transition-all duration-200`}
             >
               {plan.popular && (
                 <div className="absolute -top-3 left-1/2 transform -translate-x-1/2 bg-accent-orange text-white px-3 py-1 rounded-full text-sm font-medium">
-                  Популярный
+                  Популярный выбор
                 </div>
               )}
               
-              <div className="mb-6">
-                <div className="text-lg font-semibold">{plan.name}</div>
-                <div className="mt-4 flex items-baseline">
-                  <span className="text-3xl font-bold">{plan.currentPrice}</span>
-                  <span className="ml-2 text-sm line-through text-gray-400">{plan.originalPrice}</span>
+              <div className="mb-8">
+                <h3 className="text-xl font-semibold mb-2">{plan.name}</h3>
+                <div className="flex items-baseline">
+                  <span className="text-4xl font-bold">{plan.price}</span>
+                  <span className="ml-2 text-gray-500">/{plan.per}</span>
                 </div>
-                <div className="mt-1 text-sm text-accent-orange font-medium">{plan.discount}</div>
-                <div className="mt-1 text-xs text-gray-500">{plan.per}</div>
               </div>
               
-              <ul className="space-y-3 mb-8">
+              <ul className="space-y-4 mb-8">
                 {plan.features.map((feature, i) => (
                   <li key={i} className="flex items-start">
-                    <span className="mr-2 text-green-500 flex-shrink-0 mt-0.5">
+                    <span className="mr-2 text-green-500 flex-shrink-0 mt-1">
                       <Check size={16} />
                     </span>
                     <span className="text-gray-600 text-sm">{feature}</span>
@@ -93,12 +94,22 @@ const PricingSection = () => {
                 ))}
               </ul>
               
-              <Button className="w-full bg-black hover:bg-gray-800 text-white">
+              <Button 
+                className={`w-full ${
+                  plan.popular 
+                    ? 'bg-accent-orange hover:bg-orange-600 text-white' 
+                    : 'bg-black hover:bg-gray-800 text-white'
+                }`}
+              >
                 {plan.cta}
               </Button>
             </div>
           ))}
         </div>
+
+        <p className="text-center text-gray-500 mt-8 text-sm">
+          Все тарифы включают 14-дневный пробный период. Отмена подписки в любой момент.
+        </p>
       </div>
     </section>
   );
