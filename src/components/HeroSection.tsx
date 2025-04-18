@@ -3,15 +3,19 @@ import React, { useState } from 'react';
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import { ArrowDown, X } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 
 interface SelectedFile {
   file: File;
   progress: number;
+  uploaded?: boolean;
 }
 
 const HeroSection = () => {
   const [selectedFiles, setSelectedFiles] = useState<SelectedFile[]>([]);
   const [isUploading, setIsUploading] = useState(false);
+  const [allUploaded, setAllUploaded] = useState(false);
+  const navigate = useNavigate();
 
   const handleFileSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
     if (event.target.files) {
@@ -42,10 +46,15 @@ const HeroSection = () => {
           clearInterval(interval);
           if (index === selectedFiles.length - 1) {
             setIsUploading(false);
+            setAllUploaded(true);
           }
         }
       }, 500);
     });
+  };
+
+  const navigateToMyFiles = () => {
+    navigate('/my-files');
   };
 
   return (
@@ -113,10 +122,10 @@ const HeroSection = () => {
                 <Button 
                   variant="default"
                   className="w-full bg-black hover:bg-accent-orange hover:text-white"
-                  onClick={simulateUpload}
+                  onClick={allUploaded ? navigateToMyFiles : simulateUpload}
                   disabled={isUploading}
                 >
-                  {isUploading ? "Загрузка..." : "Загрузить"}
+                  {isUploading ? "Загрузка..." : allUploaded ? "Audio.AI" : "Загрузить"}
                 </Button>
               </div>
             )}
@@ -132,3 +141,4 @@ const HeroSection = () => {
 };
 
 export default HeroSection;
+
