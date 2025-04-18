@@ -27,7 +27,7 @@ const HeroSection = () => {
                 <ArrowDown size={32} className="text-black mb-4" />
               </div>
               
-              <Button className="w-full py-6 text-lg bg-black hover:bg-accent-orange text-white hover:text-black">
+              <Button variant="default" className="w-full py-6 text-lg bg-black hover:bg-accent-orange hover:text-white">
                 Загрузить файл
               </Button>
             </div>
@@ -43,3 +43,4 @@ const HeroSection = () => {
 };
 
 export default HeroSection;
+
