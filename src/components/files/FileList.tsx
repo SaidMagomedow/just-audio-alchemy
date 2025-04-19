@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { File, Search, Calendar, SlidersHorizontal } from 'lucide-react';
 import { Input } from "@/components/ui/input";
@@ -19,6 +18,9 @@ export interface TranscribedFile {
   duration: string;
   audioUrl: string;
   status?: 'completed' | 'processing' | 'error';
+  transcription?: any;
+  fileSize?: number;
+  mimeType?: string;
 }
 
 interface FileListProps {

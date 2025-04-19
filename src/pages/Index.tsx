@@ -1,4 +1,3 @@
-
 import React from 'react';
 import Header from '@/components/Header';
 import HeroSection from '@/components/HeroSection';
@@ -10,11 +9,13 @@ import FAQSection from '@/components/FAQSection';
 import TestimonialsSection from '@/components/TestimonialsSection';
 import CtaSection from '@/components/CtaSection';
 import Footer from '@/components/Footer';
+import PaymentNotification from '@/components/PaymentNotification';
 
 const Index = () => {
   return (
     <div className="min-h-screen flex flex-col">
       <Header />
+      <PaymentNotification />
       <main className="flex-grow">
         <HeroSection />
         <FeaturesSection />

@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { TranscribedFile } from './FileList';
@@ -31,13 +30,36 @@ const FileDetails: React.FC<FileDetailsProps> = ({
 }) => {
   const [activeTab, setActiveTab] = useState<string>("audio");
   
-  // Mock transcription data
-  const mockTranscription = selectedFile ? 
-    `[00:15] Здравствуйте, сегодня мы поговорим о важности правильной обработки аудио.
-[00:32] Первое, на что стоит обратить внимание - это качество записи.
-[01:05] Для хорошей расшифровки важно минимизировать фоновый шум.
-[01:48] Использование специализированных инструментов может значительно повысить качество.
-[02:30] В заключение, помните о правильном формате сохранения аудиофайлов.` : '';
+  // Получаем транскрипцию из данных файла или используем пустую строку
+  const getTranscription = (): string => {
+    if (!selectedFile || !selectedFile.transcription) return '';
+    
+    // Если у нас есть транскрипция из API, преобразуем ее в нужный формат
+    if (typeof selectedFile.transcription === 'object') {
+      try {
+        // Формат вида: "[timestamp] текст"
+        if (selectedFile.transcription.segments) {
+          return selectedFile.transcription.segments
+            .map((segment: any) => {
+              const startTime = Math.floor(segment.start);
+              const minutes = Math.floor(startTime / 60);
+              const seconds = Math.floor(startTime % 60);
+              const timestamp = `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+              return `[${timestamp}] ${segment.text}`;
+            })
+            .join('\n');
+        }
+        // Если формат другой, возвращаем JSON строкой
+        return JSON.stringify(selectedFile.transcription, null, 2);
+      } catch (e) {
+        console.error('Error parsing transcription:', e);
+        return 'Ошибка при обработке транскрипции';
+      }
+    }
+    
+    // Если транскрипция уже строка, возвращаем ее
+    return selectedFile.transcription.toString();
+  };
   
   // Send selection to GPT chat
   const handleSendToGPT = (text: string) => {
@@ -89,7 +111,7 @@ const FileDetails: React.FC<FileDetailsProps> = ({
         <TabsContent value="transcription" className="flex-1 overflow-y-auto">
           <Transcription 
             fileId={selectedFile.id}
-            transcription={mockTranscription}
+            transcription={getTranscription()}
             onSendToGPT={handleSendToGPT}
           />
         </TabsContent>
@@ -99,7 +121,7 @@ const FileDetails: React.FC<FileDetailsProps> = ({
             messages={messages}
             onSendMessage={onSendMessage}
             fileName={selectedFile.name}
-            transcriptionContext={mockTranscription}
+            transcriptionContext={getTranscription()}
           />
         </TabsContent>
       </Tabs>
