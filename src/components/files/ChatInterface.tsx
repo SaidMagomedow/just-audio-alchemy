@@ -1,4 +1,3 @@
-
 import React, { useState, useRef, useEffect } from 'react';
 import { Textarea } from '@/components/ui/textarea';
 import { Button } from "@/components/ui/button";
@@ -6,12 +5,12 @@ import { Send, Bot, User, RefreshCw, Copy } from 'lucide-react';
 import { toast } from "sonner";
 
 // Message types
-export type MessageType = 'user' | 'server';
+export type MessageRole = 'user' | 'assistant';
 
 export interface Message {
   id: string;
   content: string;
-  type: MessageType;
+  role: MessageRole;
   timestamp: Date;
 }
 
@@ -20,6 +19,8 @@ interface ChatInterfaceProps {
   onSendMessage: (message: string) => void;
   fileName: string;
   transcriptionContext?: string;
+  isLoading?: boolean;
+  isLimitExceeded?: boolean;
 }
 
 // Format time utility
@@ -34,7 +35,9 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({
   messages, 
   onSendMessage,
   fileName,
-  transcriptionContext
+  transcriptionContext,
+  isLoading = false,
+  isLimitExceeded = false
 }) => {
   const [newMessage, setNewMessage] = useState('');
   const [isProcessing, setIsProcessing] = useState(false);
@@ -87,64 +90,73 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({
       
       {/* Messages area */}
       <div className="flex-1 overflow-y-auto p-4 bg-gray-50" style={{ minHeight: "300px" }}>
-        <div className="space-y-4 max-w-3xl mx-auto">
-          {messages.map(message => (
-            <div 
-              key={message.id} 
-              className={`flex gap-3 ${message.type === 'user' ? 'justify-end' : 'justify-start'}`}
-            >
-              {message.type === 'server' && (
+        {isLoading ? (
+          <div className="flex justify-center items-center h-full">
+            <div className="flex items-center gap-2">
+              <RefreshCw className="h-5 w-5 animate-spin text-primary" />
+              <span>Загрузка сообщений...</span>
+            </div>
+          </div>
+        ) : (
+          <div className="space-y-4 max-w-3xl mx-auto">
+            {messages.map(message => (
+              <div 
+                key={message.id} 
+                className={`flex gap-3 ${message.role === 'user' ? 'justify-end' : 'justify-start'}`}
+              >
+                {message.role === 'assistant' && (
+                  <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0">
+                    <Bot size={16} className="text-primary" />
+                  </div>
+                )}
+                
+                <div 
+                  className={`group max-w-[80%] rounded-lg p-3 ${
+                    message.role === 'user' 
+                      ? 'bg-[#F1F0FB] text-black ml-auto' 
+                      : 'bg-[#D3E4FD] text-black'
+                  }`}
+                >
+                  <div className="text-sm whitespace-pre-wrap">{message.content}</div>
+                  <div className="flex justify-between items-center mt-1">
+                    <span className="text-xs text-gray-500">
+                      {formatTime(message.timestamp)}
+                    </span>
+                    
+                    <Button 
+                      variant="ghost" 
+                      size="icon" 
+                      className="h-6 w-6 opacity-0 group-hover:opacity-100 transition-opacity"
+                      onClick={() => handleCopyMessage(message.content)}
+                    >
+                      <Copy className="h-3 w-3" />
+                    </Button>
+                  </div>
+                </div>
+                
+                {message.role === 'user' && (
+                  <div className="w-8 h-8 rounded-full bg-gray-200 flex items-center justify-center flex-shrink-0">
+                    <User size={16} className="text-gray-600" />
+                  </div>
+                )}
+              </div>
+            ))}
+            {isProcessing && (
+              <div className="flex justify-start gap-3">
                 <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0">
                   <Bot size={16} className="text-primary" />
                 </div>
-              )}
-              
-              <div 
-                className={`group max-w-[80%] rounded-lg p-3 ${
-                  message.type === 'user' 
-                    ? 'bg-[#F1F0FB] text-black ml-auto' 
-                    : 'bg-[#D3E4FD] text-black'
-                }`}
-              >
-                <div className="text-sm whitespace-pre-wrap">{message.content}</div>
-                <div className="flex justify-between items-center mt-1">
-                  <span className="text-xs text-gray-500">
-                    {formatTime(message.timestamp)}
-                  </span>
-                  
-                  <Button 
-                    variant="ghost" 
-                    size="icon" 
-                    className="h-6 w-6 opacity-0 group-hover:opacity-100 transition-opacity"
-                    onClick={() => handleCopyMessage(message.content)}
-                  >
-                    <Copy className="h-3 w-3" />
-                  </Button>
+                <div className="bg-[#D3E4FD] rounded-lg p-3">
+                  <div className="flex items-center gap-2">
+                    <RefreshCw className="h-4 w-4 animate-spin" />
+                    <span className="text-sm">Генерация ответа...</span>
+                  </div>
                 </div>
               </div>
-              
-              {message.type === 'user' && (
-                <div className="w-8 h-8 rounded-full bg-gray-200 flex items-center justify-center flex-shrink-0">
-                  <User size={16} className="text-gray-600" />
-                </div>
-              )}
-            </div>
-          ))}
-          {isProcessing && (
-            <div className="flex justify-start gap-3">
-              <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0">
-                <Bot size={16} className="text-primary" />
-              </div>
-              <div className="bg-[#D3E4FD] rounded-lg p-3">
-                <div className="flex items-center gap-2">
-                  <RefreshCw className="h-4 w-4 animate-spin" />
-                  <span className="text-sm">Генерация ответа...</span>
-                </div>
-              </div>
-            </div>
-          )}
-          <div ref={messagesEndRef} />
-        </div>
+            )}
+            <div ref={messagesEndRef} />
+          </div>
+        )}
       </div>
       
       {/* Context indicator for transcription */}
@@ -159,7 +171,7 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({
         <div className="flex gap-2 max-w-3xl mx-auto">
           <Textarea 
             ref={textareaRef}
-            placeholder="Напишите сообщение..." 
+            placeholder={isLimitExceeded ? "Лимит GPT запросов исчерпан" : "Напишите сообщение..."} 
             className="min-h-[60px] resize-none"
             value={newMessage}
             onChange={(e) => setNewMessage(e.target.value)}
@@ -169,10 +181,11 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({
                 handleSend();
               }
             }}
+            disabled={isLoading || isLimitExceeded}
           />
           <Button 
             onClick={handleSend}
-            disabled={!newMessage.trim() || isProcessing}
+            disabled={!newMessage.trim() || isProcessing || isLoading || isLimitExceeded}
             className="h-auto"
           >
             <Send className="h-4 w-4" />

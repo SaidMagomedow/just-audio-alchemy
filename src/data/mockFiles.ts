@@ -1,4 +1,3 @@
-
 import { TranscribedFile } from "../components/files/FileList";
 import { Message } from "../components/files/ChatInterface";
 
@@ -51,7 +50,7 @@ export const initialMessages: Message[] = [
   {
     id: '1',
     content: 'Привет! Я AI-ассистент just.audio.ai. Я могу помочь с анализом и редактированием вашей расшифровки. Что бы вы хотели сделать с этим файлом?',
-    type: 'server',
+    role: 'assistant',
     timestamp: new Date(2023, 4, 15, 10, 30)
   }
 ];

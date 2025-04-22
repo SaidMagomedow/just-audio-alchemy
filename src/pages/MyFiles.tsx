@@ -5,7 +5,6 @@ import Footer from '@/components/Footer';
 import FileList, { TranscribedFile } from '@/components/files/FileList';
 import FileDetails from '@/components/files/FileDetails';
 import { Message } from '@/components/files/ChatInterface';
-import { initialMessages } from '@/data/mockFiles';
 import api from '@/lib/api';
 
 // Интерфейс для файла с бэкенда
@@ -26,7 +25,7 @@ interface ApiFile {
 const MyFiles: React.FC = () => {
   const [files, setFiles] = useState<TranscribedFile[]>([]);
   const [selectedFile, setSelectedFile] = useState<TranscribedFile | null>(null);
-  const [messages, setMessages] = useState<Message[]>(initialMessages);
+  const [messages, setMessages] = useState<Message[]>([]);
   const [showChat, setShowChat] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -105,32 +104,14 @@ const MyFiles: React.FC = () => {
   const handleFileSelect = (file: TranscribedFile) => {
     setSelectedFile(file);
     setShowChat(false); // Default to audio player, not chat
-    // Reset messages for new file
-    setMessages(initialMessages);
+    // Reset messages when selecting a new file
+    setMessages([]);
   };
 
+  // This is a dummy method now - our chat is handled directly in FileDetails component
   const handleSendMessage = (content: string) => {
-    // Add user message
-    const userMessage: Message = {
-      id: Date.now().toString(),
-      content,
-      type: 'user',
-      timestamp: new Date()
-    };
-    
-    setMessages(prev => [...prev, userMessage]);
-    
-    // Simulate server response
-    setTimeout(() => {
-      const serverResponse: Message = {
-        id: (Date.now() + 1).toString(),
-        content: `Я обработал ваш запрос по файлу "${selectedFile?.name}". Могу предложить оптимизировать текст и улучшить его структуру. Что-нибудь еще?`,
-        type: 'server',
-        timestamp: new Date()
-      };
-      
-      setMessages(prev => [...prev, serverResponse]);
-    }, 1000);
+    // Do nothing - this is just to satisfy the props contract
+    // Actual chat handling is done in FileDetails component
   };
 
   // Handlers for file actions
