@@ -1,6 +1,7 @@
 
 import React, { useState } from 'react';
 import { Button } from "@/components/ui/button";
+import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
 import { Copy, Download, MessageSquare, Pencil, Save, X } from 'lucide-react';
 import { toast } from "sonner";
@@ -18,8 +19,9 @@ const Transcription: React.FC<TranscriptionProps> = ({
 }) => {
   const [isEditing, setIsEditing] = useState(false);
   const [editedText, setEditedText] = useState(transcription);
+  const [activeTab, setActiveTab] = useState("text");
   
-  // For demonstration, let's create some dummy transcription with timestamps
+  // For demonstration, using the same transcription for all formats
   const processedTranscription = transcription || 
     `[00:15] Здравствуйте, сегодня мы поговорим о важности правильной обработки аудио.
 [00:32] Первое, на что стоит обратить внимание - это качество записи.
@@ -27,88 +29,118 @@ const Transcription: React.FC<TranscriptionProps> = ({
 [01:48] Использование специализированных инструментов может значительно повысить качество.
 [02:30] В заключение, помните о правильном формате сохранения аудиофайлов.`;
 
+  // Format converters
+  const getWebVTT = (text: string) => {
+    const lines = text.split('\n');
+    return `WEBVTT
+
+${lines.map((line, index) => {
+  const match = line.match(/\[(\d{2}:\d{2})\]/);
+  if (match) {
+    const timestamp = match[1];
+    const text = line.replace(/\[\d{2}:\d{2}\]\s*/, '');
+    return `${index + 1}
+${timestamp}.000 --> ${index < lines.length - 1 ? lines[index + 1].match(/\[(\d{2}:\d{2})\]/)?.[1] : '03:00'}.000
+${text}
+
+`;
+  }
+  return '';
+}).join('')}`;
+  };
+
+  const getRST = (text: string) => {
+    const lines = text.split('\n');
+    return lines.map(line => {
+      const match = line.match(/\[(\d{2}:\d{2})\]\s*(.*)/);
+      if (match) {
+        return `.. _${match[1].replace(':', '_')}:
+
+${match[2]}
+--------------------
+
+`;
+      }
+      return '';
+    }).join('');
+  };
+
+  const getJSON = (text: string) => {
+    const lines = text.split('\n');
+    const segments = lines.map(line => {
+      const match = line.match(/\[(\d{2}:\d{2})\]\s*(.*)/);
+      if (match) {
+        return {
+          timestamp: match[1],
+          text: match[2]
+        };
+      }
+      return null;
+    }).filter(Boolean);
+
+    return JSON.stringify({ segments }, null, 2);
+  };
+
   // Save edited text
   const handleSave = () => {
     toast.success("Изменения сохранены");
     setIsEditing(false);
-    // Here you would typically send the changes to the server
   };
   
   // Cancel editing
   const handleCancel = () => {
-    setEditedText(transcription); // Revert changes
+    setEditedText(transcription);
     setIsEditing(false);
   };
   
-  // Copy to clipboard
+  // Copy to clipboard based on active tab
   const handleCopy = () => {
-    navigator.clipboard.writeText(processedTranscription);
+    let textToCopy = processedTranscription;
+    
+    switch (activeTab) {
+      case "webvtt":
+        textToCopy = getWebVTT(processedTranscription);
+        break;
+      case "rst":
+        textToCopy = getRST(processedTranscription);
+        break;
+      case "json":
+        textToCopy = getJSON(processedTranscription);
+        break;
+    }
+    
+    navigator.clipboard.writeText(textToCopy);
     toast.success("Текст скопирован в буфер обмена");
   };
   
-  // Download as text file
+  // Download as text file with appropriate extension
   const handleDownload = () => {
+    let content = processedTranscription;
+    let extension = "txt";
+    
+    switch (activeTab) {
+      case "webvtt":
+        content = getWebVTT(processedTranscription);
+        extension = "vtt";
+        break;
+      case "rst":
+        content = getRST(processedTranscription);
+        extension = "rst";
+        break;
+      case "json":
+        content = getJSON(processedTranscription);
+        extension = "json";
+        break;
+    }
+    
     const element = document.createElement("a");
-    const file = new Blob([processedTranscription], {type: 'text/plain'});
+    const file = new Blob([content], {type: 'text/plain'});
     element.href = URL.createObjectURL(file);
-    element.download = `transcription-${fileId}.txt`;
+    element.download = `transcription-${fileId}.${extension}`;
     document.body.appendChild(element);
     element.click();
     document.body.removeChild(element);
     toast.success("Файл скачан");
-  };
-  
-  // Make timestamps clickable
-  const renderClickableTimestamps = (text: string) => {
-    const regex = /\[(\d{2}:\d{2})\]/g;
-    const parts = text.split(regex);
-    
-    if (parts.length <= 1) return text;
-    
-    const result: JSX.Element[] = [];
-    let i = 0;
-    
-    while (i < parts.length) {
-      if (i % 2 === 0) {
-        // Regular text
-        result.push(<span key={`text-${i}`}>{parts[i]}</span>);
-      } else {
-        // Timestamp - make it clickable
-        result.push(
-          <button 
-            key={`time-${i}`}
-            className="text-primary hover:underline font-mono"
-            onClick={() => {
-              // Here you would seek to this position in the audio
-              toast.info(`Переход к позиции ${parts[i]}`);
-            }}
-          >
-            [{parts[i]}]
-          </button>
-        );
-      }
-      i++;
-    }
-    
-    return <>{result}</>;
-  };
-  
-  // Handle sending selection to GPT
-  const handleSendToGPT = (e: React.MouseEvent<HTMLButtonElement>, text: string = '') => {
-    let selectedText = text;
-    
-    if (!text) {
-      const selection = window.getSelection();
-      if (selection && selection.toString()) {
-        selectedText = selection.toString();
-      } else {
-        selectedText = processedTranscription;
-      }
-    }
-    
-    if (selectedText) {
-      onSendToGPT(selectedText);
-    }
   };
 
   return (
@@ -175,35 +207,52 @@ const Transcription: React.FC<TranscriptionProps> = ({
             )}
           </div>
         </div>
-        
-        {/* Transcription content */}
-        {isEditing ? (
-          <Textarea 
-            value={editedText}
-            onChange={(e) => setEditedText(e.target.value)}
-            className="min-h-[200px] font-mono text-sm"
-          />
-        ) : (
-          <div className="bg-white border rounded-md p-4 whitespace-pre-wrap font-mono text-sm leading-relaxed">
-            {renderClickableTimestamps(processedTranscription)}
-            
-            {/* Floating action button for selected text */}
-            <div className="fixed bottom-6 right-6 shadow-lg rounded-full z-10 hidden selection:block">
-              <Button 
-                onClick={handleSendToGPT}
-                className="rounded-full h-12 w-12 flex items-center justify-center"
-              >
-                <MessageSquare className="h-5 w-5" />
-              </Button>
+
+        <Tabs defaultValue="text" className="w-full" onValueChange={setActiveTab}>
+          <TabsList className="mb-4">
+            <TabsTrigger value="text">Текст</TabsTrigger>
+            <TabsTrigger value="webvtt">WebVTT</TabsTrigger>
+            <TabsTrigger value="rst">RST</TabsTrigger>
+            <TabsTrigger value="json">JSON</TabsTrigger>
+          </TabsList>
+
+          <TabsContent value="text">
+            {isEditing ? (
+              <Textarea 
+                value={editedText}
+                onChange={(e) => setEditedText(e.target.value)}
+                className="min-h-[200px] font-mono text-sm"
+              />
+            ) : (
+              <div className="bg-white border rounded-md p-4 whitespace-pre-wrap font-mono text-sm leading-relaxed">
+                {processedTranscription}
+              </div>
+            )}
+          </TabsContent>
+
+          <TabsContent value="webvtt">
+            <div className="bg-white border rounded-md p-4 whitespace-pre-wrap font-mono text-sm leading-relaxed">
+              {getWebVTT(processedTranscription)}
             </div>
-          </div>
-        )}
+          </TabsContent>
+
+          <TabsContent value="rst">
+            <div className="bg-white border rounded-md p-4 whitespace-pre-wrap font-mono text-sm leading-relaxed">
+              {getRST(processedTranscription)}
+            </div>
+          </TabsContent>
+
+          <TabsContent value="json">
+            <div className="bg-white border rounded-md p-4 whitespace-pre-wrap font-mono text-sm leading-relaxed">
+              {getJSON(processedTranscription)}
+            </div>
+          </TabsContent>
+        </Tabs>
       </div>
       
-      {/* Quick actions */}
       <div className="flex justify-end">
         <Button 
-          onClick={(e) => handleSendToGPT(e)}
+          onClick={() => onSendToGPT(processedTranscription)}
           variant="default"
           className="flex items-center gap-2"
         >
