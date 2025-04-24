@@ -1,9 +1,12 @@
+
 import React, { useState } from 'react';
 import { Button } from "@/components/ui/button";
-import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
-import { Textarea } from "@/components/ui/textarea";
-import { Copy, Download, MessageSquare, Pencil, Save, X } from 'lucide-react';
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { MessageSquare } from 'lucide-react';
 import { toast } from "sonner";
+import { convertToWebVTT, convertToRST, convertToJSON } from '@/utils/transcriptionFormatters';
+import TranscriptionActions from './transcription/TranscriptionActions';
+import TranscriptionContent from './transcription/TranscriptionContent';
 
 interface TranscriptionProps {
   fileId: string;
@@ -27,57 +30,6 @@ const Transcription: React.FC<TranscriptionProps> = ({
 [01:48] Использование специализированных инструментов может значительно повысить качество.
 [02:30] В заключение, помните о правильном формате сохранения аудиофайлов.`;
 
-  const getWebVTT = (text: string) => {
-    const lines = text.split('\n');
-    return `WEBVTT
-
-${lines.map((line, index) => {
-  const match = line.match(/\[(\d{2}:\d{2})\]/);
-  if (match) {
-    const timestamp = match[1];
-    const text = line.replace(/\[\d{2}:\d{2}\]\s*/, '');
-    return `${index + 1}
-${timestamp}.000 --> ${index < lines.length - 1 ? lines[index + 1].match(/\[(\d{2}:\d{2})\]/)?.[1] : '03:00'}.000
-${text}
-
-`;
-  }
-  return '';
-}).join('')}`;
-  };
-
-  const getRST = (text: string) => {
-    const lines = text.split('\n');
-    return lines.map(line => {
-      const match = line.match(/\[(\d{2}:\d{2})\]\s*(.*)/);
-      if (match) {
-        return `.. _${match[1].replace(':', '_')}:
-
-${match[2]}
---------------------
-
-`;
-      }
-      return '';
-    }).join('');
-  };
-
-  const getJSON = (text: string) => {
-    const lines = text.split('\n');
-    const segments = lines.map(line => {
-      const match = line.match(/\[(\d{2}:\d{2})\]\s*(.*)/);
-      if (match) {
-        return {
-          timestamp: match[1],
-          text: match[2]
-        };
-      }
-      return null;
-    }).filter(Boolean);
-
-    return JSON.stringify({ segments }, null, 2);
-  };
-
   const handleSave = () => {
     toast.success("Изменения сохранены");
     setIsEditing(false);
@@ -93,13 +45,13 @@ ${match[2]}
     
     switch (activeTab) {
       case "webvtt":
-        textToCopy = getWebVTT(processedTranscription);
+        textToCopy = convertToWebVTT(processedTranscription);
         break;
       case "rst":
-        textToCopy = getRST(processedTranscription);
+        textToCopy = convertToRST(processedTranscription);
         break;
       case "json":
-        textToCopy = getJSON(processedTranscription);
+        textToCopy = convertToJSON(processedTranscription);
         break;
     }
     
@@ -113,15 +65,15 @@ ${match[2]}
     
     switch (activeTab) {
       case "webvtt":
-        content = getWebVTT(processedTranscription);
+        content = convertToWebVTT(processedTranscription);
         extension = "vtt";
         break;
       case "rst":
-        content = getRST(processedTranscription);
+        content = convertToRST(processedTranscription);
         extension = "rst";
         break;
       case "json":
-        content = getJSON(processedTranscription);
+        content = convertToJSON(processedTranscription);
         extension = "json";
         break;
     }
@@ -143,61 +95,14 @@ ${match[2]}
           <h3 className="text-lg font-medium">Расшифровка</h3>
           
           <div className="flex gap-2">
-            {isEditing ? (
-              <>
-                <Button 
-                  onClick={handleSave}
-                  size="sm" 
-                  variant="outline"
-                  className="flex items-center gap-1"
-                >
-                  <Save className="h-4 w-4" />
-                  <span>Сохранить</span>
-                </Button>
-                
-                <Button 
-                  onClick={handleCancel}
-                  size="sm" 
-                  variant="outline"
-                  className="flex items-center gap-1"
-                >
-                  <X className="h-4 w-4" />
-                  <span>Отмена</span>
-                </Button>
-              </>
-            ) : (
-              <>
-                <Button 
-                  onClick={() => setIsEditing(true)}
-                  size="sm" 
-                  variant="outline"
-                  className="flex items-center gap-1"
-                >
-                  <Pencil className="h-4 w-4" />
-                  <span>Редактировать</span>
-                </Button>
-                
-                <Button 
-                  onClick={handleCopy}
-                  size="sm" 
-                  variant="outline"
-                  className="flex items-center gap-1"
-                >
-                  <Copy className="h-4 w-4" />
-                  <span>Копировать</span>
-                </Button>
-                
-                <Button 
-                  onClick={handleDownload}
-                  size="sm" 
-                  variant="outline"
-                  className="flex items-center gap-1"
-                >
-                  <Download className="h-4 w-4" />
-                  <span>Скачать</span>
-                </Button>
-              </>
-            )}
+            <TranscriptionActions 
+              isEditing={isEditing}
+              onSave={handleSave}
+              onCancel={handleCancel}
+              onEdit={() => setIsEditing(true)}
+              onCopy={handleCopy}
+              onDownload={handleDownload}
+            />
           </div>
         </div>
 
@@ -214,37 +119,13 @@ ${match[2]}
           </TabsList>
 
           <div className="min-h-[300px] border rounded-md p-4 bg-white">
-            <TabsContent value="text" className="w-full">
-              {isEditing ? (
-                <Textarea 
-                  value={editedText}
-                  onChange={(e) => setEditedText(e.target.value)}
-                  className="min-h-[250px] font-mono text-sm"
-                />
-              ) : (
-                <div className="whitespace-pre-wrap font-mono text-sm leading-relaxed">
-                  {processedTranscription}
-                </div>
-              )}
-            </TabsContent>
-
-            <TabsContent value="webvtt" className="w-full">
-              <div className="whitespace-pre-wrap font-mono text-sm leading-relaxed">
-                {getWebVTT(processedTranscription)}
-              </div>
-            </TabsContent>
-
-            <TabsContent value="rst" className="w-full">
-              <div className="whitespace-pre-wrap font-mono text-sm leading-relaxed">
-                {getRST(processedTranscription)}
-              </div>
-            </TabsContent>
-
-            <TabsContent value="json" className="w-full">
-              <div className="whitespace-pre-wrap font-mono text-sm leading-relaxed">
-                {getJSON(processedTranscription)}
-              </div>
-            </TabsContent>
+            <TranscriptionContent 
+              activeTab={activeTab}
+              isEditing={isEditing}
+              editedText={editedText}
+              processedTranscription={processedTranscription}
+              onEditChange={setEditedText}
+            />
           </div>
         </Tabs>
       </div>
