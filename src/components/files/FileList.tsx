@@ -21,6 +21,14 @@ export interface TranscribedFile {
   transcription?: any;
   fileSize?: number;
   mimeType?: string;
+  // CamelCase versions (frontend)
+  removedNoiseFileUrl?: string;
+  removedMelodyFileUrl?: string;
+  removedVocalsFileUrl?: string;
+  // Snake_case versions (from API)
+  removed_noise_file_url?: string;
+  removed_melody_file_url?: string;
+  removed_vocals_file_url?: string;
 }
 
 interface FileListProps {

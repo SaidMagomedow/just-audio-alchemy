@@ -1,4 +1,3 @@
-
 import React, { useState, useRef, useEffect } from 'react';
 import { Button } from "@/components/ui/button";
 import { Slider } from "@/components/ui/slider";
@@ -19,9 +18,16 @@ import {
   SkipBack,
   SkipForward,
   Volume1,
-  VolumeX
+  VolumeX,
+  VolumeIcon,
+  Download,
+  CheckCircle
 } from 'lucide-react';
 import { TranscribedFile } from './FileList';
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import api from '@/lib/api';
+import { toast } from 'sonner';
+import { getAuthToken } from '@/lib/auth';
 
 interface AudioPlayerProps {
   file: TranscribedFile;
@@ -48,6 +54,9 @@ const AudioPlayer: React.FC<AudioPlayerProps> = ({
   onTranscriptionSelect
 }) => {
   const audioRef = useRef<HTMLAudioElement>(null);
+  const enhancedAudioRef = useRef<HTMLAudioElement>(null);
+  const vocalsAudioRef = useRef<HTMLAudioElement>(null);
+  const instrumentalAudioRef = useRef<HTMLAudioElement>(null);
   const [isPlaying, setIsPlaying] = useState(false);
   const [currentTime, setCurrentTime] = useState(0);
   const [duration, setDuration] = useState(0);
@@ -55,82 +64,298 @@ const AudioPlayer: React.FC<AudioPlayerProps> = ({
   const [isProcessing, setIsProcessing] = useState(false);
   const [processingType, setProcessingType] = useState('');
   const [progress, setProgress] = useState(0);
+  const [activeAudio, setActiveAudio] = useState<'original' | 'enhanced' | 'vocals' | 'instrumental'>('original');
+  const [audioError, setAudioError] = useState<string | null>(null);
+  const [audioLoaded, setAudioLoaded] = useState(false);
+  
+  // Audio element references
+  const getCurrentAudioRef = () => {
+    switch(activeAudio) {
+      case 'original':
+        return audioRef;
+      case 'enhanced':
+        return enhancedAudioRef;
+      case 'vocals':
+        return vocalsAudioRef;
+      case 'instrumental':
+        return instrumentalAudioRef;
+      default:
+        return audioRef;
+    }
+  };
   
   useEffect(() => {
     const audio = audioRef.current;
+    const enhancedAudio = enhancedAudioRef.current;
+    const vocalsAudio = vocalsAudioRef.current;
+    const instrumentalAudio = instrumentalAudioRef.current;
+    
     if (!audio) return;
     
-    const updateTime = () => setCurrentTime(audio.currentTime);
-    const handleDurationChange = () => setDuration(audio.duration);
+    const updateTime = () => {
+      const currentRef = getCurrentAudioRef().current;
+      if (currentRef) {
+        setCurrentTime(currentRef.currentTime);
+      }
+    };
+    
+    const handleDurationChange = () => {
+      const currentRef = getCurrentAudioRef().current;
+      if (currentRef) {
+        setDuration(currentRef.duration);
+      }
+    };
+    
     const handleEnded = () => setIsPlaying(false);
     
-    audio.addEventListener('timeupdate', updateTime);
-    audio.addEventListener('durationchange', handleDurationChange);
-    audio.addEventListener('ended', handleEnded);
+    const handleError = (e: Event) => {
+      console.error('Audio playback error:', e);
+      setAudioError('Ошибка воспроизведения. Проверьте права доступа к файлу.');
+      setIsPlaying(false);
+    };
+    
+    // Add event listeners to all audio elements
+    const audioElements = [audio, enhancedAudio, vocalsAudio, instrumentalAudio].filter(Boolean);
+    
+    audioElements.forEach(element => {
+      element?.addEventListener('timeupdate', updateTime);
+      element?.addEventListener('durationchange', handleDurationChange);
+      element?.addEventListener('ended', handleEnded);
+      element?.addEventListener('error', handleError);
+    });
     
     return () => {
-      audio.removeEventListener('timeupdate', updateTime);
-      audio.removeEventListener('durationchange', handleDurationChange);
-      audio.removeEventListener('ended', handleEnded);
+      audioElements.forEach(element => {
+        element?.removeEventListener('timeupdate', updateTime);
+        element?.removeEventListener('durationchange', handleDurationChange);
+        element?.removeEventListener('ended', handleEnded);
+        element?.removeEventListener('error', handleError);
+      });
     };
-  }, []);
+  }, [activeAudio]);
   
-  // Reset player when file changes
+  // Reset player when file changes or when switching between original/enhanced
   useEffect(() => {
-    setIsPlaying(false);
+    pauseAllAudio();
     setCurrentTime(0);
     setDuration(0);
-    if (audioRef.current) {
-      audioRef.current.currentTime = 0;
-      audioRef.current.load();
-    }
-  }, [file]);
-  
-  const togglePlayPause = () => {
-    if (!audioRef.current) return;
+    setAudioError(null);
+    setAudioLoaded(false);
     
-    if (isPlaying) {
-      audioRef.current.pause();
-    } else {
-      audioRef.current.play();
+    // Don't load audio automatically, wait for play button
+    if (audioRef.current) {
+      audioRef.current.removeAttribute('src');
     }
-    setIsPlaying(!isPlaying);
+    if (enhancedAudioRef.current) {
+      enhancedAudioRef.current.removeAttribute('src');
+    }
+    if (vocalsAudioRef.current) {
+      vocalsAudioRef.current.removeAttribute('src');
+    }
+    if (instrumentalAudioRef.current) {
+      instrumentalAudioRef.current.removeAttribute('src');
+    }
+  }, [file, activeAudio]);
+  
+  const pauseAllAudio = () => {
+    if (audioRef.current) audioRef.current.pause();
+    if (enhancedAudioRef.current) enhancedAudioRef.current.pause();
+    if (vocalsAudioRef.current) vocalsAudioRef.current.pause();
+    if (instrumentalAudioRef.current) instrumentalAudioRef.current.pause();
+    setIsPlaying(false);
+  };
+  
+  // This function loads the audio with proper auth headers when needed
+  const loadAudioWithAuth = async () => {
+    const audioElement = getCurrentAudioRef().current;
+    if (!audioElement) return false;
+    
+    // If audio is already loaded, don't reload
+    if (audioLoaded && audioElement.src) return true;
+    
+    setAudioLoaded(false);
+    setAudioError(null);
+    
+    try {
+      const authToken = getAuthToken();
+      if (!authToken) {
+        setAudioError('Ошибка авторизации. Пожалуйста, войдите в систему.');
+        return false;
+      }
+      
+      // Get current file key based on which audio is active
+      let fileKey;
+      switch(activeAudio) {
+        case 'original':
+          fileKey = file.audioUrl;
+          break;
+        case 'enhanced':
+          fileKey = file.removedNoiseFileUrl || file.removed_noise_file_url;
+          break;
+        case 'vocals':
+          fileKey = file.removedMelodyFileUrl || file.removed_melody_file_url;
+          break;
+        case 'instrumental':
+          fileKey = file.removedVocalsFileUrl || file.removed_vocals_file_url;
+          break;
+        default:
+          fileKey = file.audioUrl;
+      }
+      
+      if (!fileKey) {
+        setAudioError('URL файла не найден');
+        return false;
+      }
+      
+      // Create URL for audio download endpoint
+      const downloadUrl = `${api.defaults.baseURL}/user-files/download?file_key=${fileKey}`;
+      
+      // Configure request with auth headers
+      const headers = {
+        'Authorization': `Bearer ${authToken}`
+      };
+      
+      // Make an authorized fetch request to the download endpoint
+      const response = await fetch(downloadUrl, { headers });
+      
+      if (!response.ok) {
+        throw new Error(`Ошибка загрузки: ${response.status} ${response.statusText}`);
+      }
+      
+      // 1) Получаем "сырые" байты
+      const arrayBuffer = await response.arrayBuffer();
+      
+      // 2) Читаем Content-Type из заголовков (или ставим mp3 по умолчанию)
+      let contentType = response.headers.get('Content-Type') || 'audio/mpeg';
+      
+      // Убеждаемся, что у нас аудио-тип (если сервер отдал application/octet-stream)
+      if (contentType === 'application/octet-stream') {
+        // Определяем тип по расширению файла
+        if (fileKey.endsWith('.mp3')) {
+          contentType = 'audio/mpeg';
+        } else if (fileKey.endsWith('.wav')) {
+          contentType = 'audio/wav';
+        } else if (fileKey.endsWith('.ogg')) {
+          contentType = 'audio/ogg';
+        } else if (fileKey.endsWith('.flac')) {
+          contentType = 'audio/flac';
+        } else {
+          contentType = 'audio/mpeg'; // По умолчанию mp3
+        }
+      }
+      
+      // 3) Явно создаём Blob с нужным MIME
+      const blob = new Blob([arrayBuffer], { type: contentType });
+      console.log('✅ blob size:', blob.size, 'type:', blob.type);
+      
+      // Проверяем, что blob не пустой
+      if (blob.size === 0) {
+        throw new Error('Получен пустой аудиофайл (размер 0 байт)');
+      }
+      
+      const objectUrl = URL.createObjectURL(blob);
+      
+      // Сначала устанавливаем обработчик событий, затем загружаем аудио
+      return new Promise<boolean>((resolve) => {
+        const handleCanPlay = () => {
+          console.log('Audio can play now!');
+          setAudioLoaded(true);
+          resolve(true);
+        };
+
+        const handleError = (e: Event) => {
+          console.error('Error loading audio:', e);
+          setAudioError('Ошибка загрузки аудио: формат не поддерживается');
+          resolve(false);
+        };
+
+        audioElement.addEventListener('canplaythrough', handleCanPlay, { once: true });
+        audioElement.addEventListener('error', handleError, { once: true });
+        
+        // Устанавливаем источник и начинаем загрузку
+        audioElement.src = objectUrl;
+        audioElement.load();
+        
+        // Устанавливаем таймаут на случай, если события не сработают
+        setTimeout(() => {
+          if (!audioElement.src) {
+            setAudioError('Таймаут при загрузке аудио');
+            resolve(false);
+          }
+        }, 10000); // 10 секунд таймаут
+      });
+      
+    } catch (error) {
+      console.error('Error loading audio:', error);
+      setAudioError(`Ошибка загрузки аудио: ${error instanceof Error ? error.message : 'Неизвестная ошибка'}`);
+      return false;
+    }
+  };
+  
+  const togglePlayPause = async () => {
+    if (isPlaying) {
+      pauseAllAudio();
+      return;
+    }
+    
+    // If we have an error or need to load the audio
+    if (audioError || !audioLoaded) {
+      const success = await loadAudioWithAuth();
+      if (!success) return; // If loading failed, don't try to play
+    }
+    
+    const audioElement = getCurrentAudioRef().current;
+    if (!audioElement) return;
+    
+    try {
+      // Воспроизводим звук, теперь мы уверены что аудио загружено и готово
+      await audioElement.play();
+      setIsPlaying(true);
+    } catch (error) {
+      console.error('Error playing audio:', error);
+      setAudioError('Ошибка воспроизведения. Проверьте права доступа к файлу.');
+    }
   };
   
   const handleSeek = (value: number[]) => {
-    if (!audioRef.current) return;
+    const audioElement = getCurrentAudioRef().current;
+    if (!audioElement || !audioLoaded) return;
     
     const newTime = value[0];
-    audioRef.current.currentTime = newTime;
+    audioElement.currentTime = newTime;
     setCurrentTime(newTime);
   };
   
   const handleVolumeChange = (value: number[]) => {
-    if (!audioRef.current) return;
+    const audioElement = getCurrentAudioRef().current;
+    if (!audioElement) return;
     
     const newVolume = value[0];
-    audioRef.current.volume = newVolume;
+    audioElement.volume = newVolume;
     setVolume(newVolume);
   };
   
   const skipForward = () => {
-    if (!audioRef.current) return;
-    audioRef.current.currentTime = Math.min(audioRef.current.duration, currentTime + 10);
+    const audioElement = getCurrentAudioRef().current;
+    if (!audioElement || !audioLoaded) return;
+    audioElement.currentTime = Math.min(audioElement.duration, currentTime + 10);
   };
   
   const skipBackward = () => {
-    if (!audioRef.current) return;
-    audioRef.current.currentTime = Math.max(0, currentTime - 10);
+    const audioElement = getCurrentAudioRef().current;
+    if (!audioElement || !audioLoaded) return;
+    audioElement.currentTime = Math.max(0, currentTime - 10);
   };
   
   const toggleMute = () => {
-    if (!audioRef.current) return;
+    const audioElement = getCurrentAudioRef().current;
+    if (!audioElement) return;
     
-    if (audioRef.current.volume > 0) {
-      audioRef.current.volume = 0;
+    if (audioElement.volume > 0) {
+      audioElement.volume = 0;
       setVolume(0);
     } else {
-      audioRef.current.volume = 1;
+      audioElement.volume = 1;
       setVolume(1);
     }
   };
@@ -155,36 +380,305 @@ const AudioPlayer: React.FC<AudioPlayerProps> = ({
     }, 200);
   };
   
-  const handleRemoveNoise = () => {
-    handleAIProcessing('Удаление шума', onRemoveNoise);
+  const handleRealRemoveNoise = async () => {
+    if (!file.id) return;
+    
+    setIsProcessing(true);
+    setProcessingType('Удаление шума');
+    setProgress(0);
+    
+    try {
+      await api.post(`/audio/convert/file/remove-noise/${file.id}`);
+      
+      // Start polling for completion
+      const checkInterval = setInterval(async () => {
+        try {
+          const response = await api.get(`/user-files/${file.id}`);
+          setProgress(prev => Math.min(prev + 10, 95)); // Gradually increase progress
+          
+          // We can check for either snake_case or camelCase field
+          if (response.data.removedNoiseFileUrl || response.data.removed_noise_file_url) {
+            clearInterval(checkInterval);
+            setProgress(100);
+            setTimeout(() => {
+              setIsProcessing(false);
+              onRemoveNoise(); // Callback to refresh file data
+            }, 500);
+          }
+        } catch (error) {
+          console.error('Error checking file status:', error);
+        }
+      }, 2000);
+      
+    } catch (error) {
+      console.error('Error removing noise:', error);
+      setIsProcessing(false);
+      toast.error('Ошибка при удалении шума');
+    }
   };
   
-  const handleRemoveMelody = () => {
-    handleAIProcessing('Удаление мелодии', onRemoveMelody);
+  const handleRealRemoveMelody = async () => {
+    if (!file.id) return;
+    
+    setIsProcessing(true);
+    setProcessingType('Удаление мелодии');
+    setProgress(0);
+    
+    try {
+      await api.post(`/audio/convert/file/remove-melody/${file.id}`);
+      
+      // Start polling for completion
+      const checkInterval = setInterval(async () => {
+        try {
+          const response = await api.get(`/user-files/${file.id}`);
+          setProgress(prev => Math.min(prev + 10, 95)); // Gradually increase progress
+          
+          // We can check for either snake_case or camelCase field
+          if (response.data.removedMelodyFileUrl || response.data.removed_melody_file_url) {
+            clearInterval(checkInterval);
+            setProgress(100);
+            setTimeout(() => {
+              setIsProcessing(false);
+              onRemoveMelody(); // Callback to refresh file data
+            }, 500);
+          }
+        } catch (error) {
+          console.error('Error checking file status:', error);
+        }
+      }, 2000);
+      
+    } catch (error) {
+      console.error('Error removing melody:', error);
+      setIsProcessing(false);
+      toast.error('Ошибка при удалении мелодии');
+    }
   };
   
-  const handleRemoveVocals = () => {
-    handleAIProcessing('Удаление вокала', onRemoveVocals);
+  const handleRealRemoveVocals = async () => {
+    if (!file.id) return;
+    
+    setIsProcessing(true);
+    setProcessingType('Удаление вокала');
+    setProgress(0);
+    
+    try {
+      await api.post(`/audio/convert/file/remove-vocals/${file.id}`);
+      
+      // Start polling for completion
+      const checkInterval = setInterval(async () => {
+        try {
+          const response = await api.get(`/user-files/${file.id}`);
+          setProgress(prev => Math.min(prev + 10, 95)); // Gradually increase progress
+          
+          // We can check for either snake_case or camelCase field
+          if (response.data.removedVocalsFileUrl || response.data.removed_vocals_file_url) {
+            clearInterval(checkInterval);
+            setProgress(100);
+            setTimeout(() => {
+              setIsProcessing(false);
+              onRemoveVocals(); // Callback to refresh file data
+            }, 500);
+          }
+        } catch (error) {
+          console.error('Error checking file status:', error);
+        }
+      }, 2000);
+      
+    } catch (error) {
+      console.error('Error removing vocals:', error);
+      setIsProcessing(false);
+      toast.error('Ошибка при удалении вокала');
+    }
   };
+  
+  // Update handler functions to use real API calls
+  const handleRemoveNoise = handleRealRemoveNoise;
+  const handleRemoveMelody = handleRealRemoveMelody;
+  const handleRemoveVocals = handleRealRemoveVocals;
   
   const handleOpenAssistant = () => {
-    handleAIProcessing('Загрузка ассистента', onOpenAssistant);
+    setIsProcessing(true);
+    setProcessingType('Загрузка ассистента');
+    setProgress(0);
+    
+    // Simulate progress
+    const interval = setInterval(() => {
+      setProgress(prev => {
+        if (prev >= 100) {
+          clearInterval(interval);
+          setIsProcessing(false);
+          onOpenAssistant();
+          return 0;
+        }
+        return prev + 5;
+      });
+    }, 200);
+  };
+  
+  const handleSwitchAudio = (value: string) => {
+    pauseAllAudio();
+    setActiveAudio(value as 'original' | 'enhanced' | 'vocals' | 'instrumental');
+    setAudioLoaded(false); // Reset loaded state when switching
+  };
+  
+  const handleDownloadAudio = async () => {
+    // Get the current file key based on the active audio
+    let fileKey;
+    let fileType;
+    
+    switch(activeAudio) {
+      case 'original':
+        fileKey = file.audioUrl;
+        fileType = 'original';
+        break;
+      case 'enhanced':
+        fileKey = file.removedNoiseFileUrl || file.removed_noise_file_url;
+        fileType = 'noise_removed';
+        break;
+      case 'vocals':
+        fileKey = file.removedMelodyFileUrl || file.removed_melody_file_url;
+        fileType = 'vocals_only';
+        break;
+      case 'instrumental':
+        fileKey = file.removedVocalsFileUrl || file.removed_vocals_file_url;
+        fileType = 'instrumental';
+        break;
+      default:
+        fileKey = file.audioUrl;
+        fileType = 'original';
+    }
+    
+    if (!fileKey) return;
+    
+    try {
+      // Get auth token
+      const authToken = getAuthToken();
+      if (!authToken) {
+        toast.error('Ошибка авторизации. Пожалуйста, войдите в систему.');
+        return;
+      }
+      
+      // Create a download URL with the file key
+      const downloadUrl = `${api.defaults.baseURL}/user-files/download?file_key=${fileKey}`;
+      
+      // Make an authorized request to the file
+      const response = await fetch(downloadUrl, {
+        headers: {
+          'Authorization': `Bearer ${authToken}`
+        }
+      });
+      
+      if (!response.ok) {
+        throw new Error(`HTTP error! Status: ${response.status}`);
+      }
+      
+      // Get the blob from the response
+      const blob = await response.blob();
+      
+      // Create a download link
+      const blobUrl = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = blobUrl;
+      
+      // Extract filename from fileKey for better naming
+      const fileName = fileKey.split('/').pop() || 'audio';
+      link.download = `${fileName.split('.')[0]}_${fileType}.${fileName.split('.').pop()}`;
+      
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      
+      // Clean up the URL object
+      setTimeout(() => URL.revokeObjectURL(blobUrl), 100);
+      
+    } catch (error) {
+      console.error('Download error:', error);
+      toast.error('Ошибка при скачивании файла. У вас может не быть прав доступа.');
+    }
   };
 
   return (
     <div className="flex-1 flex flex-col p-6">
-      {/* Audio element (hidden) */}
+      {/* Audio elements (hidden) - no src initially */}
       <audio 
         ref={audioRef}
-        src={file.audioUrl}
-        preload="metadata"
+        preload="none"
         className="hidden"
       />
+      
+      {(file.removedNoiseFileUrl || file.removed_noise_file_url) && (
+        <audio
+          ref={enhancedAudioRef}
+          preload="none"
+          className="hidden"
+        />
+      )}
+      
+      {(file.removedMelodyFileUrl || file.removed_melody_file_url) && (
+        <audio
+          ref={vocalsAudioRef}
+          preload="none"
+          className="hidden"
+        />
+      )}
+      
+      {(file.removedVocalsFileUrl || file.removed_vocals_file_url) && (
+        <audio
+          ref={instrumentalAudioRef}
+          preload="none"
+          className="hidden"
+        />
+      )}
       
       {/* Main player UI */}
       <div className="mb-8 w-full max-w-4xl mx-auto">
         <div className="bg-gray-50 rounded-lg p-6">
-          <h3 className="text-lg font-medium mb-6">Прослушать исходный файл</h3>
+          {/* Show tabs only if we have any processed files */}
+          {(file.removedNoiseFileUrl || file.removed_noise_file_url || 
+            file.removedMelodyFileUrl || file.removed_melody_file_url || 
+            file.removedVocalsFileUrl || file.removed_vocals_file_url) && (
+            <div className="mb-4">
+              <Tabs value={activeAudio} onValueChange={handleSwitchAudio} className="w-full">
+                <TabsList className="grid w-full" style={{ gridTemplateColumns: `repeat(${getAvailableTracks().length}, 1fr)` }}>
+                  <TabsTrigger value="original">Исходный файл</TabsTrigger>
+                  {(file.removedNoiseFileUrl || file.removed_noise_file_url) && (
+                    <TabsTrigger value="enhanced">Файл без шума</TabsTrigger>
+                  )}
+                  {(file.removedMelodyFileUrl || file.removed_melody_file_url) && (
+                    <TabsTrigger value="vocals">Только вокал</TabsTrigger>
+                  )}
+                  {(file.removedVocalsFileUrl || file.removed_vocals_file_url) && (
+                    <TabsTrigger value="instrumental">Инструментал</TabsTrigger>
+                  )}
+                </TabsList>
+              </Tabs>
+            </div>
+          )}
+          
+          <div className="flex justify-between items-center mb-6">
+            <h3 className="text-lg font-medium">
+              {activeAudio === 'original' && 'Исходный файл'}
+              {activeAudio === 'enhanced' && 'Файл с удаленным шумом'}
+              {activeAudio === 'vocals' && 'Только вокал (без музыки)'}
+              {activeAudio === 'instrumental' && 'Инструментал (без голоса)'}
+            </h3>
+            <Button 
+              variant="outline" 
+              size="sm"
+              onClick={handleDownloadAudio}
+              className="flex items-center gap-1"
+            >
+              <Download className="h-4 w-4" />
+              <span>Скачать</span>
+            </Button>
+          </div>
+          
+          {/* Display error message if there's an audio error */}
+          {audioError && (
+            <div className="mb-4 p-3 bg-red-50 text-red-600 rounded-md text-sm">
+              {audioError}
+            </div>
+          )}
           
           {/* Waveform / Progress visualization */}
           <div className="relative h-12 mb-2 bg-gray-100 rounded overflow-hidden">
@@ -220,6 +714,7 @@ const AudioPlayer: React.FC<AudioPlayerProps> = ({
               size="icon" 
               onClick={skipBackward}
               className="h-10 w-10"
+              disabled={!audioLoaded}
             >
               <SkipBack className="h-5 w-5" />
             </Button>
@@ -242,6 +737,7 @@ const AudioPlayer: React.FC<AudioPlayerProps> = ({
               size="icon"
               onClick={skipForward} 
               className="h-10 w-10"
+              disabled={!audioLoaded}
             >
               <SkipForward className="h-5 w-5" />
             </Button>
@@ -292,79 +788,106 @@ const AudioPlayer: React.FC<AudioPlayerProps> = ({
           {/* AI Tools grid */}
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
             <TooltipProvider>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <Button 
-                    onClick={handleOpenAssistant}
-                    variant="outline" 
-                    className="flex items-center gap-2 h-auto py-3 w-full justify-start"
-                    disabled={isProcessing}
-                  >
-                    <Mic className="h-5 w-5 text-primary" />
-                    <span>CPT ассистент</span>
-                  </Button>
-                </TooltipTrigger>
-                <TooltipContent>
-                  <p>Открыть диалог с ассистентом для работы с аудио</p>
-                </TooltipContent>
-              </Tooltip>
               
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <Button 
-                    onClick={handleRemoveNoise}
-                    variant="outline" 
-                    className="flex items-center gap-2 h-auto py-3 w-full justify-start"
-                    disabled={isProcessing}
-                  >
-                    <Volume2 className="h-5 w-5 text-primary" />
-                    <span>Удалить шум</span>
-                  </Button>
-                </TooltipTrigger>
-                <TooltipContent>
-                  <p>Автоматически очистить аудио от фоновых шумов</p>
-                </TooltipContent>
-              </Tooltip>
+              <div className="flex flex-col">
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button 
+                      onClick={handleRemoveNoise}
+                      variant="outline" 
+                      className="flex items-center gap-2 h-auto py-3 w-full justify-start"
+                      disabled={!!isProcessing || !!file.removedNoiseFileUrl || !!file.removed_noise_file_url}
+                    >
+                      <Volume2 className="h-5 w-5 text-primary" />
+                      <span>Удалить шум</span>
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    <p>Автоматически очистить аудио от фоновых шумов</p>
+                  </TooltipContent>
+                </Tooltip>
+                {(file.removedNoiseFileUrl || file.removed_noise_file_url) && (
+                  <span className="text-xs bg-green-50 text-green-600 px-2 py-0.5 rounded-md font-medium flex items-center gap-1 mt-1 w-fit self-center">
+                    <CheckCircle className="h-3 w-3" />
+                    Готово
+                  </span>
+                )}
+              </div>
               
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <Button 
-                    onClick={handleRemoveMelody}
-                    variant="outline" 
-                    className="flex items-center gap-2 h-auto py-3 w-full justify-start"
-                    disabled={isProcessing}
-                  >
-                    <Music className="h-5 w-5 text-primary" />
-                    <span>Удалить мелодию</span>
-                  </Button>
-                </TooltipTrigger>
-                <TooltipContent>
-                  <p>Удалить музыкальное сопровождение, оставив только голос</p>
-                </TooltipContent>
-              </Tooltip>
+              <div className="flex flex-col">
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button 
+                      onClick={handleRemoveMelody}
+                      variant="outline" 
+                      className="flex items-center gap-2 h-auto py-3 w-full justify-start"
+                      disabled={isProcessing || !!file.removedMelodyFileUrl || !!file.removed_melody_file_url}
+                    >
+                      <Music className="h-5 w-5 text-primary" />
+                      <span>Удалить мелодию</span>
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    <p>Удалить музыкальное сопровождение, оставив только голос</p>
+                  </TooltipContent>
+                </Tooltip>
+                {(file.removedMelodyFileUrl || file.removed_melody_file_url) && (
+                  <span className="text-xs bg-green-50 text-green-600 px-2 py-0.5 rounded-md font-medium flex items-center gap-1 mt-1 w-fit self-center">
+                    <CheckCircle className="h-3 w-3" />
+                    Готово
+                  </span>
+                )}
+              </div>
               
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <Button 
-                    onClick={handleRemoveVocals}
-                    variant="outline" 
-                    className="flex items-center gap-2 h-auto py-3 w-full justify-start"
-                    disabled={isProcessing}
-                  >
-                    <MicOff className="h-5 w-5 text-primary" />
-                    <span>Удалить вокал</span>
-                  </Button>
-                </TooltipTrigger>
-                <TooltipContent>
-                  <p>Удалить голос из аудио, оставив только музыку</p>
-                </TooltipContent>
-              </Tooltip>
+              <div className="flex flex-col">
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button 
+                      onClick={handleRemoveVocals}
+                      variant="outline" 
+                      className="flex items-center gap-2 h-auto py-3 w-full justify-start"
+                      disabled={isProcessing || !!file.removedVocalsFileUrl || !!file.removed_vocals_file_url}
+                    >
+                      <MicOff className="h-5 w-5 text-primary" />
+                      <span>Удалить вокал</span>
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    <p>Удалить голос из аудио, оставив только дорожку</p>
+                  </TooltipContent>
+                </Tooltip>
+                {(file.removedVocalsFileUrl || file.removed_vocals_file_url) && (
+                  <span className="text-xs bg-green-50 text-green-600 px-2 py-0.5 rounded-md font-medium flex items-center gap-1 mt-1 w-fit self-center">
+                    <CheckCircle className="h-3 w-3" />
+                    Готово
+                  </span>
+                )}
+              </div>
             </TooltipProvider>
           </div>
         </div>
       </div>
     </div>
   );
+  
+  // Helper function to determine available audio tracks
+  function getAvailableTracks() {
+    const tracks = [{ id: 'original', label: 'Исходный файл' }];
+    
+    if (file.removedNoiseFileUrl || file.removed_noise_file_url) {
+      tracks.push({ id: 'enhanced', label: 'Файл без шума' });
+    }
+    
+    if (file.removedMelodyFileUrl || file.removed_melody_file_url) {
+      tracks.push({ id: 'vocals', label: 'Только вокал' });
+    }
+    
+    if (file.removedVocalsFileUrl || file.removed_vocals_file_url) {
+      tracks.push({ id: 'instrumental', label: 'Инструментал' });
+    }
+    
+    return tracks;
+  }
 };
 
 export default AudioPlayer;

@@ -20,6 +20,9 @@ interface ApiFile {
   mime_type?: string;
   transcription?: any;
   duration?: number;
+  removed_noise_file_url?: string;
+  removed_melody_file_url?: string;
+  removed_vocals_file_url?: string;
 }
 
 const MyFiles: React.FC = () => {
@@ -49,7 +52,13 @@ const MyFiles: React.FC = () => {
             status: mapApiStatus(file.status),
             transcription: file.transcription,
             fileSize: file.file_size,
-            mimeType: file.mime_type
+            mimeType: file.mime_type,
+            removedNoiseFileUrl: file.removed_noise_file_url,
+            removedMelodyFileUrl: file.removed_melody_file_url,
+            removedVocalsFileUrl: file.removed_vocals_file_url,
+            removed_noise_file_url: file.removed_noise_file_url,
+            removed_melody_file_url: file.removed_melody_file_url,
+            removed_vocals_file_url: file.removed_vocals_file_url
           }));
           
           setFiles(transformedFiles);
