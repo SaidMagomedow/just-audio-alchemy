@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
@@ -21,7 +20,6 @@ const Transcription: React.FC<TranscriptionProps> = ({
   const [editedText, setEditedText] = useState(transcription);
   const [activeTab, setActiveTab] = useState("text");
   
-  // For demonstration, using the same transcription for all formats
   const processedTranscription = transcription || 
     `[00:15] Здравствуйте, сегодня мы поговорим о важности правильной обработки аудио.
 [00:32] Первое, на что стоит обратить внимание - это качество записи.
@@ -29,7 +27,6 @@ const Transcription: React.FC<TranscriptionProps> = ({
 [01:48] Использование специализированных инструментов может значительно повысить качество.
 [02:30] В заключение, помните о правильном формате сохранения аудиофайлов.`;
 
-  // Format converters
   const getWebVTT = (text: string) => {
     const lines = text.split('\n');
     return `WEBVTT
@@ -81,19 +78,16 @@ ${match[2]}
     return JSON.stringify({ segments }, null, 2);
   };
 
-  // Save edited text
   const handleSave = () => {
     toast.success("Изменения сохранены");
     setIsEditing(false);
   };
   
-  // Cancel editing
   const handleCancel = () => {
     setEditedText(transcription);
     setIsEditing(false);
   };
   
-  // Copy to clipboard based on active tab
   const handleCopy = () => {
     let textToCopy = processedTranscription;
     
@@ -113,7 +107,6 @@ ${match[2]}
     toast.success("Текст скопирован в буфер обмена");
   };
   
-  // Download as text file with appropriate extension
   const handleDownload = () => {
     let content = processedTranscription;
     let extension = "txt";
@@ -208,45 +201,51 @@ ${match[2]}
           </div>
         </div>
 
-        <Tabs defaultValue="text" className="w-full" onValueChange={setActiveTab}>
-          <TabsList className="mb-4">
+        <Tabs 
+          value={activeTab} 
+          onValueChange={setActiveTab} 
+          className="w-full"
+        >
+          <TabsList className="mb-4 w-full justify-start">
             <TabsTrigger value="text">Текст</TabsTrigger>
             <TabsTrigger value="webvtt">WebVTT</TabsTrigger>
             <TabsTrigger value="rst">RST</TabsTrigger>
             <TabsTrigger value="json">JSON</TabsTrigger>
           </TabsList>
 
-          <TabsContent value="text">
-            {isEditing ? (
-              <Textarea 
-                value={editedText}
-                onChange={(e) => setEditedText(e.target.value)}
-                className="min-h-[200px] font-mono text-sm"
-              />
-            ) : (
-              <div className="bg-white border rounded-md p-4 whitespace-pre-wrap font-mono text-sm leading-relaxed">
-                {processedTranscription}
+          <div className="min-h-[300px] border rounded-md p-4 bg-white">
+            <TabsContent value="text" className="w-full">
+              {isEditing ? (
+                <Textarea 
+                  value={editedText}
+                  onChange={(e) => setEditedText(e.target.value)}
+                  className="min-h-[250px] font-mono text-sm"
+                />
+              ) : (
+                <div className="whitespace-pre-wrap font-mono text-sm leading-relaxed">
+                  {processedTranscription}
+                </div>
+              )}
+            </TabsContent>
+
+            <TabsContent value="webvtt" className="w-full">
+              <div className="whitespace-pre-wrap font-mono text-sm leading-relaxed">
+                {getWebVTT(processedTranscription)}
               </div>
-            )}
-          </TabsContent>
+            </TabsContent>
 
-          <TabsContent value="webvtt">
-            <div className="bg-white border rounded-md p-4 whitespace-pre-wrap font-mono text-sm leading-relaxed">
-              {getWebVTT(processedTranscription)}
-            </div>
-          </TabsContent>
+            <TabsContent value="rst" className="w-full">
+              <div className="whitespace-pre-wrap font-mono text-sm leading-relaxed">
+                {getRST(processedTranscription)}
+              </div>
+            </TabsContent>
 
-          <TabsContent value="rst">
-            <div className="bg-white border rounded-md p-4 whitespace-pre-wrap font-mono text-sm leading-relaxed">
-              {getRST(processedTranscription)}
-            </div>
-          </TabsContent>
-
-          <TabsContent value="json">
-            <div className="bg-white border rounded-md p-4 whitespace-pre-wrap font-mono text-sm leading-relaxed">
-              {getJSON(processedTranscription)}
-            </div>
-          </TabsContent>
+            <TabsContent value="json" className="w-full">
+              <div className="whitespace-pre-wrap font-mono text-sm leading-relaxed">
+                {getJSON(processedTranscription)}
+              </div>
+            </TabsContent>
+          </div>
         </Tabs>
       </div>
       
