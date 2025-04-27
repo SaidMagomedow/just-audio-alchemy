@@ -202,52 +202,61 @@ const FileDetails: React.FC<FileDetailsProps> = ({
           <TabsTrigger value="chat">GPT-ассистент</TabsTrigger>
         </TabsList>
         
-        <TabsContent value="audio" className="flex-1 flex">
-          <AudioPlayer 
-            file={selectedFile}
-            onOpenAssistant={() => {
-              onOpenAssistant();
-              setActiveTab("chat");
-            }}
-            onRemoveNoise={onRemoveNoise}
-            onRemoveMelody={onRemoveMelody}
-            onRemoveVocals={onRemoveVocals}
-          />
-        </TabsContent>
+        {activeTab === "audio" && (
+          <div className="flex-1 flex">
+            <AudioPlayer 
+              file={selectedFile}
+              onOpenAssistant={() => {
+                onOpenAssistant();
+                setActiveTab("chat");
+              }}
+              onRemoveNoise={onRemoveNoise}
+              onRemoveMelody={onRemoveMelody}
+              onRemoveVocals={onRemoveVocals}
+            />
+          </div>
+        )}
         
-        <TabsContent value="transcription" className="flex-1 overflow-y-auto">
-          <Transcription 
-            fileId={selectedFile.id}
-            transcription={getTranscription()}
-            onSendToGPT={handleSendToGPT}
-          />
-        </TabsContent>
+        {activeTab === "transcription" && (
+          <div className="flex-1 overflow-y-auto">
+            <Transcription 
+              fileId={selectedFile.id}
+              transcription={selectedFile.transcription}
+              transcriptionText={selectedFile.transcription_text}
+              transcriptionVtt={selectedFile.transcription_vtt}
+              transcriptionSrt={selectedFile.transcription_srt}
+              onSendToGPT={handleSendToGPT}
+            />
+          </div>
+        )}
         
-        <TabsContent value="chat" className="flex-1 flex flex-col">
-          {limitExceeded && (
-            <Alert variant="destructive" className="mx-4 mt-2">
-              <AlertCircle className="h-4 w-4" />
-              <AlertTitle>Ограничение GPT-ассистента</AlertTitle>
-              <AlertDescription>
-                <div className="mt-2">
-                  <p>{limitErrorMessage}</p>
-                  <Button variant="outline" size="sm" className="mt-2" onClick={() => window.open('/pricing', '_blank')}>
-                    Обновить подписку <ExternalLink className="h-3 w-3 ml-1" />
-                  </Button>
-                </div>
-              </AlertDescription>
-            </Alert>
-          )}
-          
-          <ChatInterface 
-            messages={chatMessages}
-            onSendMessage={handleSendMessage}
-            fileName={selectedFile.name}
-            transcriptionContext={getTranscription()}
-            isLoading={isLoadingChat}
-            isLimitExceeded={limitExceeded}
-          />
-        </TabsContent>
+        {activeTab === "chat" && (
+          <div className="flex-1 flex flex-col">
+            {limitExceeded && (
+              <Alert variant="destructive" className="mx-4 mt-2">
+                <AlertCircle className="h-4 w-4" />
+                <AlertTitle>Ограничение GPT-ассистента</AlertTitle>
+                <AlertDescription>
+                  <div className="mt-2">
+                    <p>{limitErrorMessage}</p>
+                    <Button variant="outline" size="sm" className="mt-2" onClick={() => window.open('/pricing', '_blank')}>
+                      Обновить подписку <ExternalLink className="h-3 w-3 ml-1" />
+                    </Button>
+                  </div>
+                </AlertDescription>
+              </Alert>
+            )}
+            
+            <ChatInterface 
+              messages={chatMessages}
+              onSendMessage={handleSendMessage}
+              fileName={selectedFile.name}
+              transcriptionContext={getTranscription()}
+              isLoading={isLoadingChat}
+              isLimitExceeded={limitExceeded}
+            />
+          </div>
+        )}
       </Tabs>
     </div>
   );

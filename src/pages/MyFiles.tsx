@@ -19,6 +19,9 @@ interface ApiFile {
   file_size?: number;
   mime_type?: string;
   transcription?: any;
+  transcription_text?: string;
+  transcription_vtt?: string;
+  transcription_srt?: string;
   duration?: number;
   removed_noise_file_url?: string;
   removed_melody_file_url?: string;
@@ -51,6 +54,9 @@ const MyFiles: React.FC = () => {
             audioUrl: file.file_url,
             status: mapApiStatus(file.status),
             transcription: file.transcription,
+            transcription_text: file.transcription_text,
+            transcription_vtt: file.transcription_vtt,
+            transcription_srt: file.transcription_srt,
             fileSize: file.file_size,
             mimeType: file.mime_type,
             removedNoiseFileUrl: file.removed_noise_file_url,

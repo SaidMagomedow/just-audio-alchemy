@@ -1,11 +1,13 @@
 import React, { useState, useCallback, useEffect } from 'react';
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
-import { ArrowDown, X, AlertCircle, CheckCircle, FileAudio, Clock } from 'lucide-react';
+import { ArrowDown, X, AlertCircle, CheckCircle, FileAudio, Clock, CreditCard } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { cn } from "@/lib/utils";
 import { toast } from '@/components/ui/use-toast';
 import api from '@/lib/api';
+import { getUserPlan } from '@/lib/api/userPlan';
+import { UserProductPlan } from '@/types/userPlan';
 
 interface SelectedFile {
   file: File;
@@ -40,7 +42,27 @@ const HeroSection = () => {
   const [isProcessing, setIsProcessing] = useState(false);
   const [allUploaded, setAllUploaded] = useState(false);
   const [dragActive, setDragActive] = useState(false);
+  const [userPlan, setUserPlan] = useState<UserProductPlan | null>(null);
+  const [loadingPlan, setLoadingPlan] = useState(true);
   const navigate = useNavigate();
+
+  // Загрузка данных о плане пользователя
+  useEffect(() => {
+    const fetchUserPlan = async () => {
+      try {
+        const planData = await getUserPlan();
+        setUserPlan(planData);
+      } catch (error) {
+        console.error('Error fetching user plan:', error);
+        // No need to show error to user on homepage, 
+        // just silently fail and don't display the plan info
+      } finally {
+        setLoadingPlan(false);
+      }
+    };
+    
+    fetchUserPlan();
+  }, []);
 
   // Загрузка файлов в обработке при монтировании компонента
   useEffect(() => {
@@ -341,123 +363,139 @@ const HeroSection = () => {
   };
 
   return (
-    <section className="min-h-[90vh] flex items-center pt-20">
+    <section className="relative bg-gray-50 py-16 md:py-24">
       <div className="container">
-        <div className="max-w-4xl mx-auto text-center">
-          <h1 className="hero-heading">
-            <span className="block">Быстрый перевод из</span>
-            <span className="block text-accent-orange font-bold">аудио</span>
-            <span className="block">в текст всего</span>
-            <span className="block text-black">за пару минут</span>
-          </h1>
-          
-          <p className="mt-6 text-xl text-gray-600 max-w-2xl mx-auto">
-            AI-платформа для подкастеров и контент-мейкеров, которая автоматически улучшает и трансформирует ваш аудио-контент.
+        <div className="max-w-3xl mx-auto text-center">
+          <h1 className="text-4xl font-bold mb-6">Улучшите <span style={{ color: '#FF7A00' }}>аудио</span> за пару кликов</h1>
+          <p className="text-xl text-gray-600 mb-8">
+            Мощный AI-инструмент для быстрой и точной транскрибации аудио на русском языке
           </p>
           
-          <p className="text-sm text-accent-orange font-medium mt-4 mb-2">
-            Поддерживаются форматы MP3, WAV, MP4, MOV и другие
-          </p>
-          
-          <div className="mt-8 flex flex-col items-center">
-            <div 
-              className={cn(
-                "w-full max-w-xl bg-white rounded-lg border-2 border-dashed p-6 mb-6 transition-all duration-300",
-                dragActive ? "border-accent-orange bg-accent-light/20" : "border-gray-200 hover:border-accent-orange/50 hover:bg-accent-light/10",
+          {userPlan && (
+            <div className="mb-6 p-3 bg-white rounded-lg shadow-sm border border-gray-100">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center space-x-2">
+                  <CreditCard className="h-5 w-5 text-accent-orange" />
+                  <span className="font-medium">Ваш план: {userPlan.is_subscription ? 'Подписка' : 'Разовый план'}</span>
+                </div>
+                <div className="flex items-center space-x-3">
+                  <div className="text-sm">
+                    <span className="text-gray-500">Использовано: </span>
+                    <span className="font-medium">{userPlan.minute_count_used} / {userPlan.minute_count_limit} мин</span>
+                  </div>
+                  <Button variant="outline" size="sm" onClick={() => navigate('/profile')}>
+                    Подробнее
+                  </Button>
+                </div>
+              </div>
+              {userPlan.minute_count_limit > 0 && (
+                <Progress 
+                  className="h-1 mt-2" 
+                  value={(userPlan.minute_count_used / userPlan.minute_count_limit) * 100} 
+                />
               )}
-              onDragEnter={handleDragEnter}
-              onDragLeave={handleDragLeave}
-              onDragOver={handleDragOver}
-              onDrop={handleDrop}
+            </div>
+          )}
+          
+          {/* File uploader */}
+          <div 
+            className={cn(
+              "mt-8 border-2 border-dashed rounded-xl p-8 transition-colors",
+              dragActive ? "border-accent-orange bg-orange-50" : "border-gray-200 hover:border-gray-300",
+              isUploading || processingFiles.length > 0 ? "border-gray-200 bg-white shadow-sm" : ""
+            )}
+            onDragEnter={handleDragEnter}
+            onDragLeave={handleDragLeave}
+            onDragOver={handleDragOver}
+            onDrop={handleDrop}
+          >
+            <p className="mb-6 text-center text-gray-600">Перетащите файл сюда или нажмите на кнопку ниже для транскрибации</p>
+            
+            <div className="flex justify-center">
+              <ArrowDown size={32} className="text-accent-orange mb-4 animate-bounce" />
+            </div>
+            
+            <input
+              type="file"
+              multiple
+              accept="audio/*,video/*"
+              className="hidden"
+              id="file-upload"
+              onChange={handleFileSelect}
+            />
+            
+            <Button 
+              variant="default" 
+              className="w-full py-5 text-lg bg-black hover:bg-accent-orange hover:text-white rounded-lg transition-all"
+              onClick={() => document.getElementById('file-upload')?.click()}
             >
-              <p className="mb-6 text-center text-gray-600">Перетащите файл сюда или нажмите на кнопку ниже для транскрибации</p>
-              
-              <div className="flex justify-center">
-                <ArrowDown size={32} className="text-accent-orange mb-4 animate-bounce" />
+              Загрузить файл
+            </Button>
+          </div>
+
+          {(selectedFiles.length > 0 || processingFiles.length > 0) && (
+            <div className="w-full max-w-xl bg-white rounded-lg shadow-sm border border-gray-100 p-4 space-y-4 animate-fade-in">
+              <div className="text-sm font-medium text-gray-700 mb-2">
+                Выбранные файлы ({getDisplayFiles().length})
               </div>
               
-              <input
-                type="file"
-                multiple
-                accept="audio/*,video/*"
-                className="hidden"
-                id="file-upload"
-                onChange={handleFileSelect}
-              />
-              
-              <Button 
-                variant="default" 
-                className="w-full py-5 text-lg bg-black hover:bg-accent-orange hover:text-white rounded-lg transition-all"
-                onClick={() => document.getElementById('file-upload')?.click()}
-              >
-                Загрузить файл
-              </Button>
-            </div>
-
-            {(selectedFiles.length > 0 || processingFiles.length > 0) && (
-              <div className="w-full max-w-xl bg-white rounded-lg shadow-sm border border-gray-100 p-4 space-y-4 animate-fade-in">
-                <div className="text-sm font-medium text-gray-700 mb-2">
-                  Выбранные файлы ({getDisplayFiles().length})
-                </div>
-                
-                <div className="max-h-60 overflow-y-auto space-y-4 pr-2">
-                  {getDisplayFiles().map((file, index) => (
-                    <div key={file.fileId || index} className="relative bg-gray-50 rounded-lg p-3">
-                      <div className="flex items-center justify-between mb-2">
-                        <div className="flex items-center space-x-2">
-                          {getFileIcon(file)}
-                          <div className="flex flex-col">
-                            <span className="text-sm font-medium truncate max-w-[300px]">
-                              {file.file.name}
+              <div className="max-h-60 overflow-y-auto space-y-4 pr-2">
+                {getDisplayFiles().map((file, index) => (
+                  <div key={file.fileId || index} className="relative bg-gray-50 rounded-lg p-3">
+                    <div className="flex items-center justify-between mb-2">
+                      <div className="flex items-center space-x-2">
+                        {getFileIcon(file)}
+                        <div className="flex flex-col">
+                          <span className="text-sm font-medium truncate max-w-[300px]">
+                            {file.file.name}
+                          </span>
+                          <div className="flex items-center space-x-2">
+                            <span className="text-xs text-gray-500">
+                              {formatFileSize(file.file.size)}
                             </span>
-                            <div className="flex items-center space-x-2">
-                              <span className="text-xs text-gray-500">
-                                {formatFileSize(file.file.size)}
-                              </span>
-                              <span className="text-xs text-gray-400">
-                                {file.file.type.split('/')[1]?.toUpperCase() || 'Аудио файл'}
-                              </span>
-                              {getStatusText(file)}
-                            </div>
+                            <span className="text-xs text-gray-400">
+                              {file.file.type.split('/')[1]?.toUpperCase() || 'Аудио файл'}
+                            </span>
+                            {getStatusText(file)}
                           </div>
                         </div>
-                        
-                        {!isUploading && !file.fileId && (
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            className="h-7 w-7 text-gray-400 hover:text-red-500 hover:bg-red-50"
-                            onClick={() => removeFile(index)}
-                          >
-                            <X className="h-4 w-4" />
-                          </Button>
-                        )}
                       </div>
-                      <Progress value={file.progress} className="h-1.5" />
+                      
+                      {!isUploading && !file.fileId && (
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-7 w-7 text-gray-400 hover:text-red-500 hover:bg-red-50"
+                          onClick={() => removeFile(index)}
+                        >
+                          <X className="h-4 w-4" />
+                        </Button>
+                      )}
                     </div>
-                  ))}
-                </div>
-                
-                <Button 
-                  variant="default"
-                  style={{
-                    backgroundColor: isUploading || isProcessing ? 'black' : 
-                                    (allUploaded || (processingFiles.length > 0 && selectedFiles.length === 0)) ? '#FF7A00' : 'black',
-                    color: 'white',
-                    transition: 'all 0.3s ease'
-                  }}
-                  className={cn(
-                    "w-full py-2.5 rounded-lg shadow-sm !text-white",
-                    "hover:!bg-accent-orange hover:text-white"
-                  )}
-                  onClick={handleButtonClick}
-                  disabled={isUploading || isProcessing}
-                >
-                  {getButtonText()}
-                </Button>
+                    <Progress value={file.progress} className="h-1.5" />
+                  </div>
+                ))}
               </div>
-            )}
-          </div>
+              
+              <Button 
+                variant="default"
+                style={{
+                  backgroundColor: isUploading || isProcessing ? 'black' : 
+                                  (allUploaded || (processingFiles.length > 0 && selectedFiles.length === 0)) ? '#FF7A00' : 'black',
+                  color: 'white',
+                  transition: 'all 0.3s ease'
+                }}
+                className={cn(
+                  "w-full py-2.5 rounded-lg shadow-sm !text-white",
+                  "hover:!bg-accent-orange hover:text-white"
+                )}
+                onClick={handleButtonClick}
+                disabled={isUploading || isProcessing}
+              >
+                {getButtonText()}
+              </Button>
+            </div>
+          )}
         </div>
       </div>
     </section>

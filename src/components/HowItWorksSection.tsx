@@ -34,7 +34,7 @@ const HowItWorksSection = () => {
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mt-12">
           {steps.map((item, index) => (
             <div key={index} className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
-              <div className="text-sm font-medium text-accent-orange mb-2">{item.step}</div>
+              <div style={{ color: '#FF7A00' }}  className="text-sm font-medium text-accent-orange mb-2">{item.step}</div>
               <h3 className="text-xl font-semibold mb-3">{item.title}</h3>
               <p className="text-gray-600">{item.description}</p>
             </div>

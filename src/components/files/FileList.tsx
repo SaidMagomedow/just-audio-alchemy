@@ -21,6 +21,10 @@ export interface TranscribedFile {
   transcription?: any;
   fileSize?: number;
   mimeType?: string;
+  // Formatted transcriptions from backend
+  transcription_text?: string;
+  transcription_vtt?: string;
+  transcription_srt?: string;
   // CamelCase versions (frontend)
   removedNoiseFileUrl?: string;
   removedMelodyFileUrl?: string;

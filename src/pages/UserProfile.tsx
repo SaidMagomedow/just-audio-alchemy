@@ -1,38 +1,49 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
-import { Settings, HelpCircle, Mail } from 'lucide-react';
+import { Settings, HelpCircle, Mail, Loader2 } from 'lucide-react';
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import Header from '@/components/Header';
 import { useAuth } from '@/lib/auth';
+import { getUserPlan } from '@/lib/api/userPlan';
+import { UserProductPlan } from '@/types/userPlan';
+import PricingSection from '@/components/PricingSection';
+import axios from 'axios';
 
 const UserProfile = () => {
   const { user } = useAuth();
+  const [userPlan, setUserPlan] = useState<UserProductPlan | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [noSubscription, setNoSubscription] = useState(false); // Only true if API returns 404
   
-  // Mock data - replace with real data when implementing backend
+  useEffect(() => {
+    const fetchUserPlan = async () => {
+      try {
+        const planData = await getUserPlan();
+        setUserPlan(planData);
+        setNoSubscription(false);
+      } catch (error) {
+        console.error('Error fetching user plan:', error);
+        // Only set noSubscription to true if it's specifically a 404 error
+        if (axios.isAxiosError(error) && error.response?.status === 404) {
+          setNoSubscription(true);
+        }
+      } finally {
+        setLoading(false);
+      }
+    };
+    
+    fetchUserPlan();
+  }, []);
+  
+  // Fallback data if API call fails
   const userData = {
     name: user?.name || "Алексей Иванов",
     email: user?.email || "alexey@example.com",
     avatarUrl: user?.photoURL || "https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=100&h=100&fit=crop",
-    plan: "Премиум",
-    subscriptionEnd: "2024-05-18",
-    usage: {
-      audioMinutes: {
-        used: 342,
-        total: 600,
-      },
-      aiProcessing: {
-        used: 15,
-        total: 30,
-      },
-      storage: {
-        used: 2.1,
-        total: 5,
-      },
-    },
   };
 
   return (
@@ -75,76 +86,20 @@ const UserProfile = () => {
               </CardContent>
             </Card>
 
-            {/* Subscription Info */}
-            <Card>
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-xl font-semibold">Текущая подписка</CardTitle>
-                <Badge variant="default" className="bg-accent-orange">
-                  {userData.plan}
-                </Badge>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-4">
-                  <p className="text-sm text-gray-500">
-                    Активна до {new Date(userData.subscriptionEnd).toLocaleDateString('ru-RU')}
-                  </p>
-                  <Button className="w-full bg-accent-orange hover:bg-orange-600">
-                    Управление подпиской
-                  </Button>
-                </div>
-              </CardContent>
-            </Card>
-
-            {/* Usage Stats */}
-            <Card>
-              <CardHeader>
-                <CardTitle className="text-xl font-semibold">Использование сервиса</CardTitle>
-                <CardDescription>Статистика использования в текущем месяце</CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-6">
-                {/* Audio Minutes */}
-                <div className="space-y-2">
-                  <div className="flex justify-between">
-                    <span className="text-sm font-medium">Минуты аудио</span>
-                    <span className="text-sm text-gray-500">
-                      {userData.usage.audioMinutes.used} / {userData.usage.audioMinutes.total} мин
-                    </span>
+            {loading ? (
+              // Show loading state while fetching plan data
+              <Card>
+                <CardContent className="py-10">
+                  <div className="flex flex-col items-center justify-center">
+                    <Loader2 className="h-10 w-10 animate-spin text-accent-orange mb-4" />
+                    <p className="text-gray-500">Загрузка информации о подписке...</p>
                   </div>
-                  <Progress 
-                    value={(userData.usage.audioMinutes.used / userData.usage.audioMinutes.total) * 100} 
-                    className="h-2"
-                  />
-                </div>
-
-                {/* AI Processing */}
-                <div className="space-y-2">
-                  <div className="flex justify-between">
-                    <span className="text-sm font-medium">AI-обработка</span>
-                    <span className="text-sm text-gray-500">
-                      {userData.usage.aiProcessing.used} / {userData.usage.aiProcessing.total} операций
-                    </span>
-                  </div>
-                  <Progress 
-                    value={(userData.usage.aiProcessing.used / userData.usage.aiProcessing.total) * 100}
-                    className="h-2"
-                  />
-                </div>
-
-                {/* Storage */}
-                <div className="space-y-2">
-                  <div className="flex justify-between">
-                    <span className="text-sm font-medium">Хранилище</span>
-                    <span className="text-sm text-gray-500">
-                      {userData.usage.storage.used} / {userData.usage.storage.total} ГБ
-                    </span>
-                  </div>
-                  <Progress 
-                    value={(userData.usage.storage.used / userData.usage.storage.total) * 100}
-                    className="h-2"
-                  />
-                </div>
-              </CardContent>
-            </Card>
+                </CardContent>
+              </Card>
+            ) : (
+              // Show either subscription details or pricing plans
+              <PricingSection userPlan={noSubscription ? null : userPlan} />
+            )}
 
             {/* Help Section */}
             <div className="flex items-center justify-center space-x-2 text-sm text-gray-600">

@@ -1,14 +1,11 @@
-
 import React from 'react';
 import { Textarea } from "@/components/ui/textarea";
-import { TabsContent } from "@/components/ui/tabs";
-import { convertToWebVTT, convertToRST, convertToJSON } from '@/utils/transcriptionFormatters';
 
 interface TranscriptionContentProps {
   activeTab: string;
   isEditing: boolean;
   editedText: string;
-  processedTranscription: string;
+  processedTranscription: string; // This now contains already formatted content
   onEditChange: (value: string) => void;
 }
 
@@ -25,36 +22,19 @@ const TranscriptionContent: React.FC<TranscriptionContentProps> = ({
         <Textarea 
           value={editedText}
           onChange={(e) => onEditChange(e.target.value)}
-          className="min-h-[250px] font-mono text-sm"
+          className="min-h-[250px] font-mono text-sm w-full"
         />
       );
     }
 
-    const content = (() => {
-      switch (activeTab) {
-        case 'webvtt':
-          return convertToWebVTT(processedTranscription);
-        case 'rst':
-          return convertToRST(processedTranscription);
-        case 'json':
-          return convertToJSON(processedTranscription);
-        default:
-          return processedTranscription;
-      }
-    })();
-
     return (
-      <div className="whitespace-pre-wrap font-mono text-sm leading-relaxed">
-        {content}
+      <div className="whitespace-pre-wrap font-mono text-sm leading-relaxed w-full">
+        {processedTranscription}
       </div>
     );
   };
 
-  return (
-    <TabsContent value={activeTab} className="w-full">
-      {getContent()}
-    </TabsContent>
-  );
+  return getContent();
 };
 
 export default TranscriptionContent;

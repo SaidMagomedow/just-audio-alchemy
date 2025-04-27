@@ -27,16 +27,6 @@ const features = [
     icon: <FileText size={32} />,
     title: 'Генерация описаний',
     description: 'Автоматически создавайте привлекательные описания и заголовки для ваших эпизодов.'
-  },
-  {
-    icon: <Video size={32} />,
-    title: 'Создание коротких видео',
-    description: 'Выделяйте лучшие моменты и создавайте короткие клипы с субтитрами для социальных сетей.'
-  },
-  {
-    icon: <Share2 size={32} />,
-    title: 'Smart-публикация',
-    description: 'Распространяйте контент на популярных платформах: Spotify, YouTube, Apple Podcasts и других.'
   }
 ];
 
@@ -49,7 +39,7 @@ const FeaturesSection = () => {
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {features.map((feature, index) => (
             <div key={index} className="feature-card">
-              <div className="mb-4 text-accent-orange">
+              <div  style={{ color: '#FF7A00' }}  className="mb-4 text-accent-orange">
                 {feature.icon}
               </div>
               <h3 className="text-xl font-semibold mb-2">{feature.title}</h3>
