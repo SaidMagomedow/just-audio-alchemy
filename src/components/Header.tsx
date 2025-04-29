@@ -21,7 +21,7 @@ const Header = () => {
     <header className="w-full py-4 bg-white/90 backdrop-blur-md fixed top-0 z-50 border-b border-gray-100">
       <div className="container flex items-center justify-between">
         <div className="flex items-center">
-          <Link to="/" className="text-xl font-semibold">just.audio.ai</Link>
+          <Link to="/" className="text-xl font-semibold">Just.<span style={{ color: '#FF7A00' }}>Audio</span>.AI</Link>
         </div>
         
         {isHomePage && (

@@ -26,6 +26,9 @@ interface ApiFile {
   removed_noise_file_url?: string;
   removed_melody_file_url?: string;
   removed_vocals_file_url?: string;
+  removed_noise_file_status?: string;
+  removed_melody_file_status?: string;
+  removed_vocal_file_status?: string;
 }
 
 const MyFiles: React.FC = () => {
@@ -64,7 +67,10 @@ const MyFiles: React.FC = () => {
             removedVocalsFileUrl: file.removed_vocals_file_url,
             removed_noise_file_url: file.removed_noise_file_url,
             removed_melody_file_url: file.removed_melody_file_url,
-            removed_vocals_file_url: file.removed_vocals_file_url
+            removed_vocals_file_url: file.removed_vocals_file_url,
+            fileRemoveNoiseStatus: file.removed_noise_file_status,
+            fileRemoveMelodyStatus: file.removed_melody_file_status,
+            fileRemoveVocalStatus: file.removed_vocal_file_status,
           }));
           
           setFiles(transformedFiles);

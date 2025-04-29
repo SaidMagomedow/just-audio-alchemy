@@ -21,6 +21,7 @@ interface ChatInterfaceProps {
   transcriptionContext?: string;
   isLoading?: boolean;
   isLimitExceeded?: boolean;
+  disableAutoScroll?: boolean;
 }
 
 // Format time utility
@@ -37,19 +38,27 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({
   fileName,
   transcriptionContext,
   isLoading = false,
-  isLimitExceeded = false
+  isLimitExceeded = false,
+  disableAutoScroll = false
 }) => {
   const [newMessage, setNewMessage] = useState('');
   const [isProcessing, setIsProcessing] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const [isUserScrolling, setIsUserScrolling] = useState(false);
 
-  // Scroll to the latest message
+  // Scroll to the latest message only when sending messages, not on tab switch
   useEffect(() => {
-    if (messagesEndRef.current) {
-      messagesEndRef.current.scrollIntoView({ behavior: 'smooth' });
+    // Скролл только при отправке новых сообщений или когда нет флага disableAutoScroll
+    if (messagesEndRef.current && !disableAutoScroll && !isUserScrolling) {
+      // Проверяем, было ли добавлено новое сообщение
+      const isNewMessageAdded = messages.length > 0 && messages[messages.length - 1].timestamp >= new Date(Date.now() - 2000);
+      
+      if (isNewMessageAdded) {
+        messagesEndRef.current.scrollIntoView({ behavior: 'smooth' });
+      }
     }
-  }, [messages]);
+  }, [messages, disableAutoScroll, isUserScrolling]);
 
   const handleSend = () => {
     if (!newMessage.trim()) return;
@@ -57,6 +66,7 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({
     setIsProcessing(true);
     onSendMessage(newMessage);
     setNewMessage('');
+    setIsUserScrolling(false); // Сбрасываем флаг пользовательского скролла при отправке нового сообщения
     
     // Simulate processing
     setTimeout(() => {
@@ -68,6 +78,15 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({
     }, 500);
   };
   
+  // Обработчик скролла пользователем
+  const handleScroll = (e: React.UIEvent<HTMLDivElement>) => {
+    const { scrollTop, scrollHeight, clientHeight } = e.currentTarget;
+    const isAtBottom = Math.abs(scrollHeight - scrollTop - clientHeight) < 10;
+    
+    // Если пользователь не в конце списка, считаем что он скроллит сам
+    setIsUserScrolling(!isAtBottom);
+  };
+  
   // Copy message to clipboard
   const handleCopyMessage = (content: string) => {
     navigator.clipboard.writeText(content);
@@ -75,21 +94,17 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({
   };
 
   return (
-    <div className="flex flex-col h-full">
-      {/* File header with context indicator */}
-      <div className="p-4 border-b">
-        <div className="flex justify-between items-center">
-          <h3 className="font-medium">{fileName}</h3>
-          {transcriptionContext && (
-            <div className="bg-primary/10 text-primary text-xs px-2 py-1 rounded-full">
-              Контекст расшифровки учтен
-            </div>
-          )}
-        </div>
-      </div>
+    <div className="flex flex-col h-full relative">
       
-      {/* Messages area */}
-      <div className="flex-1 overflow-y-auto p-4 bg-gray-50" style={{ minHeight: "300px" }}>
+      {/* Messages area - с адаптивным размером */}
+      <div 
+        className="flex-1 overflow-y-auto p-4 bg-gray-50" 
+        style={{ 
+          height: transcriptionContext ? "calc(100% - 180px - 41px)" : "calc(100% - 180px)",
+          minHeight: "250px"
+        }}
+        onScroll={handleScroll}
+      >
         {isLoading ? (
           <div className="flex justify-center items-center h-full">
             <div className="flex items-center gap-2">
@@ -161,13 +176,13 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({
       
       {/* Context indicator for transcription */}
       {transcriptionContext && (
-        <div className="px-4 py-2 bg-primary/5 border-t border-b text-sm">
+        <div className="px-4 py-2 bg-primary/5 border-t border-b text-sm sticky bottom-[84px]">
           <p className="text-gray-600">Анализируется расшифровка файла <span className="font-medium">{fileName}</span></p>
         </div>
       )}
       
       {/* Message input */}
-      <div className="p-4 border-t">
+      <div className="p-4 border-t mt-auto sticky bottom-0 z-10 bg-white">
         <div className="flex gap-2 max-w-3xl mx-auto">
           <Textarea 
             ref={textareaRef}

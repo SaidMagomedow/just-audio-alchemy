@@ -33,6 +33,11 @@ export interface TranscribedFile {
   removed_noise_file_url?: string;
   removed_melody_file_url?: string;
   removed_vocals_file_url?: string;
+  // Processing status from backend enums
+  fileRemoveNoiseStatus?: 'not started' | 'processing' | 'completed';
+  fileRemoveMelodyStatus?: 'not started' | 'processing' | 'completed';
+  fileRemoveVocalStatus?: 'not started' | 'processing' | 'completed';
+  fileImproveAudioStatus?: 'not started' | 'processing' | 'completed';
 }
 
 interface FileListProps {

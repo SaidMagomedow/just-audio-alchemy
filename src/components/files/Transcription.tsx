@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { MessageSquare } from 'lucide-react';
@@ -6,6 +6,7 @@ import { toast } from "sonner";
 import { convertToWebVTT, convertToRST, convertToJSON } from '@/utils/transcriptionFormatters';
 import TranscriptionActions from './transcription/TranscriptionActions';
 import TranscriptionContent from './transcription/TranscriptionContent';
+import api from '@/lib/api';
 
 interface TranscriptionProps {
   fileId: string;
@@ -18,32 +19,86 @@ interface TranscriptionProps {
 
 const Transcription: React.FC<TranscriptionProps> = ({ 
   fileId, 
-  transcription, 
-  transcriptionText,
-  transcriptionVtt,
-  transcriptionSrt,
+  transcription: initialTranscription, 
+  transcriptionText: initialTranscriptionText,
+  transcriptionVtt: initialTranscriptionVtt,
+  transcriptionSrt: initialTranscriptionSrt,
   onSendToGPT 
 }) => {
+  // Local state for all transcription formats
+  const [transcription, setTranscription] = useState<any>(initialTranscription);
+  const [transcriptionText, setTranscriptionText] = useState(initialTranscriptionText);
+  const [transcriptionVtt, setTranscriptionVtt] = useState(initialTranscriptionVtt);
+  const [transcriptionSrt, setTranscriptionSrt] = useState(initialTranscriptionSrt);
+  
   const [isEditing, setIsEditing] = useState(false);
-  const [editedText, setEditedText] = useState(transcriptionText || (typeof transcription === 'string' ? transcription : ''));
+  const [editedText, setEditedText] = useState('');
   const [activeTab, setActiveTab] = useState("text");
   const [originalJson, setOriginalJson] = useState<any>(null);
   
   // Use the backend-provided transcription text if available, otherwise use the converted/processed one
   const processedTranscription = transcriptionText || (typeof transcription === 'string' ? transcription : '') || 
-    `[00:15] Здравствуйте, сегодня мы поговорим о важности правильной обработки аудио.
-[00:32] Первое, на что стоит обратить внимание - это качество записи.
-[01:05] Для хорошей расшифровки важно минимизировать фоновый шум.
-[01:48] Использование специализированных инструментов может значительно повысить качество.
-[02:30] В заключение, помните о правильном формате сохранения аудиофайлов.`;
+    `Аудиофайл не имеет расшифровки.`;
 
-  const handleSave = () => {
-    toast.success("Изменения сохранены");
-    setIsEditing(false);
+  const handleSave = async () => {
+    try {
+      let transcriptionType = activeTab;
+      let data = editedText;
+      
+      // Convert activeTab to API expected format
+      if (activeTab === 'webvtt') {
+        transcriptionType = 'vtt';
+      }
+      
+      // Send data to API
+      await api.post(`/user-files/${fileId}/transcription`, {
+        transcription_type: transcriptionType,
+        data: data
+      });
+      
+      // Update local state to keep the edited content
+      if (activeTab === 'text') {
+        setTranscriptionText(editedText);
+      } else if (activeTab === 'webvtt') {
+        setTranscriptionVtt(editedText);
+      } else if (activeTab === 'srt') {
+        setTranscriptionSrt(editedText);
+      } else if (activeTab === 'json') {
+        try {
+          // If it's valid JSON, update the originalJson state
+          const jsonData = JSON.parse(editedText);
+          setOriginalJson(jsonData);
+          setTranscription(jsonData);
+        } catch (e) {
+          console.error('Error parsing JSON:', e);
+        }
+      }
+      
+      toast.success("Изменения сохранены");
+      setIsEditing(false);
+      
+    } catch (error) {
+      console.error('Error saving transcription:', error);
+      toast.error("Ошибка при сохранении изменений");
+    }
   };
   
   const handleCancel = () => {
-    setEditedText(transcriptionText || (typeof transcription === 'string' ? transcription : ''));
+    // Reset edited text based on current tab
+    if (activeTab === 'text') {
+      setEditedText(transcriptionText || (typeof transcription === 'string' ? transcription : ''));
+    } else if (activeTab === 'webvtt') {
+      setEditedText(transcriptionVtt || convertToWebVTT(processedTranscription));
+    } else if (activeTab === 'srt') {
+      setEditedText(transcriptionSrt || convertToRST(processedTranscription));
+    } else if (activeTab === 'json') {
+      if (originalJson) {
+        setEditedText(JSON.stringify(originalJson, null, 2));
+      } else {
+        setEditedText(convertToJSON(processedTranscription));
+      }
+    }
+    
     setIsEditing(false);
   };
   
@@ -113,7 +168,7 @@ const Transcription: React.FC<TranscriptionProps> = ({
   // Function to get content for the current tab
   const getTranscriptionContent = () => {
     if (activeTab === 'text') {
-      return processedTranscription;
+      return transcriptionText || (typeof transcription === 'string' ? transcription : '');
     } else if (activeTab === 'webvtt') {
       return transcriptionVtt || convertToWebVTT(processedTranscription);
     } else if (activeTab === 'srt') {
@@ -126,11 +181,11 @@ const Transcription: React.FC<TranscriptionProps> = ({
         return convertToJSON(processedTranscription);
       }
     }
-    return processedTranscription;
+    return transcriptionText || (typeof transcription === 'string' ? transcription : '');
   };
 
   // Store the original transcription for re-use
-  React.useEffect(() => {
+  useEffect(() => {
     try {
       // If transcription is a string that looks like JSON, parse it
       if (typeof transcription === 'string' && 
@@ -145,11 +200,79 @@ const Transcription: React.FC<TranscriptionProps> = ({
     }
   }, [transcription]);
 
+  // When tab changes and in edit mode, update edited text to match current tab
+  useEffect(() => {
+    if (isEditing) {
+      if (activeTab === 'text') {
+        setEditedText(transcriptionText || (typeof transcription === 'string' ? transcription : ''));
+      } else if (activeTab === 'webvtt') {
+        setEditedText(transcriptionVtt || convertToWebVTT(processedTranscription));
+      } else if (activeTab === 'srt') {
+        setEditedText(transcriptionSrt || convertToRST(processedTranscription));
+      } else if (activeTab === 'json') {
+        if (originalJson) {
+          setEditedText(JSON.stringify(originalJson, null, 2));
+        } else {
+          setEditedText(convertToJSON(processedTranscription));
+        }
+      }
+    }
+  }, [activeTab, isEditing]);
+
+  // Init edited text when entering edit mode
+  useEffect(() => {
+    if (isEditing) {
+      if (activeTab === 'text') {
+        setEditedText(transcriptionText || (typeof transcription === 'string' ? transcription : ''));
+      } else if (activeTab === 'webvtt') {
+        setEditedText(transcriptionVtt || convertToWebVTT(processedTranscription));
+      } else if (activeTab === 'srt') {
+        setEditedText(transcriptionSrt || convertToRST(processedTranscription));
+      } else if (activeTab === 'json') {
+        if (originalJson) {
+          setEditedText(JSON.stringify(originalJson, null, 2));
+        } else {
+          setEditedText(convertToJSON(processedTranscription));
+        }
+      }
+    }
+  }, [isEditing]);
+
+  // Handle tab change - set edited text based on current format
+  const handleTabChange = (value: string) => {
+    setActiveTab(value);
+    
+    // If editing, prep the edit text for the new tab format
+    if (isEditing) {
+      if (value === 'text') {
+        setEditedText(transcriptionText || (typeof transcription === 'string' ? transcription : ''));
+      } else if (value === 'webvtt') {
+        setEditedText(transcriptionVtt || convertToWebVTT(processedTranscription));
+      } else if (value === 'srt') {
+        setEditedText(transcriptionSrt || convertToRST(processedTranscription));
+      } else if (value === 'json') {
+        if (originalJson) {
+          setEditedText(JSON.stringify(originalJson, null, 2));
+        } else {
+          setEditedText(convertToJSON(processedTranscription));
+        }
+      }
+    }
+  };
+
+  // Update local state when props change
+  useEffect(() => {
+    setTranscription(initialTranscription);
+    setTranscriptionText(initialTranscriptionText);
+    setTranscriptionVtt(initialTranscriptionVtt);
+    setTranscriptionSrt(initialTranscriptionSrt);
+  }, [initialTranscription, initialTranscriptionText, initialTranscriptionVtt, initialTranscriptionSrt]);
+
   return (
     <div className="flex-1 flex flex-col p-6">
       {/* Верхняя навигация с табами */}
       <div className="bg-gray-50 border-b mb-8 rounded-t-lg w-full max-w-4xl mx-auto">
-        <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+        <Tabs value={activeTab} onValueChange={handleTabChange} className="w-full">
           <TabsList className="grid w-full" style={{ gridTemplateColumns: `repeat(4, 1fr)` }}>
             <TabsTrigger value="text">Текст</TabsTrigger>
             <TabsTrigger value="webvtt">WebVTT</TabsTrigger>
@@ -182,7 +305,7 @@ const Transcription: React.FC<TranscriptionProps> = ({
               activeTab={activeTab}
               isEditing={isEditing}
               editedText={editedText}
-              processedTranscription={getTranscriptionContent()}
+              processedTranscription={isEditing ? editedText : getTranscriptionContent()}
               onEditChange={setEditedText}
             />
           </div>

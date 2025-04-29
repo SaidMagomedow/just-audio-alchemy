@@ -49,7 +49,7 @@ export const mockFiles: TranscribedFile[] = [
 export const initialMessages: Message[] = [
   {
     id: '1',
-    content: 'Привет! Я AI-ассистент just.audio.ai. Я могу помочь с анализом и редактированием вашей расшифровки. Что бы вы хотели сделать с этим файлом?',
+    content: 'Привет! Я AI-ассистент Just.Audio.AI. Я могу помочь с анализом и редактированием вашей расшифровки. Что бы вы хотели сделать с этим файлом?',
     role: 'assistant',
     timestamp: new Date(2023, 4, 15, 10, 30)
   }

@@ -7,7 +7,7 @@ const Footer = () => {
       <div className="container">
         <div className="grid grid-cols-1 md:grid-cols-4 gap-8">
           <div>
-            <h3 className="font-semibold text-lg mb-4">just.audio.ai</h3>
+            <h3 className="font-semibold text-lg mb-4">Just.Audio.AI</h3>
             <p className="text-gray-600 mb-4">
               AI-платформа для подкастеров и контент-мейкеров.
             </p>
@@ -61,7 +61,7 @@ const Footer = () => {
         </div>
         
         <div className="mt-12 pt-8 border-t border-gray-200">
-          <p className="text-gray-500 text-center">© 2025 just.audio.ai. Все права защищены.</p>
+          <p className="text-gray-500 text-center">© 2025 Just.Audio.AI. Все права защищены.</p>
         </div>
       </div>
     </footer>

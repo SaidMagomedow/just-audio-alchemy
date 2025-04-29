@@ -17,7 +17,7 @@ const TranscriptionContent: React.FC<TranscriptionContentProps> = ({
   onEditChange
 }) => {
   const getContent = () => {
-    if (activeTab === 'text' && isEditing) {
+    if (isEditing) {
       return (
         <Textarea 
           value={editedText}

@@ -8,6 +8,7 @@ import { toast } from '@/components/ui/use-toast';
 import api from '@/lib/api';
 import { getUserPlan } from '@/lib/api/userPlan';
 import { UserProductPlan } from '@/types/userPlan';
+import { isAuthenticated } from '@/lib/auth';
 
 interface SelectedFile {
   file: File;
@@ -81,14 +82,15 @@ const HeroSection = () => {
       } catch (error) {
         console.error('Error fetching processing files:', error);
         toast({
-          title: "Ошибка загрузки",
+          title: "Ошибка загрузки", 
           description: "Не удалось загрузить обрабатываемые файлы.",
           variant: "destructive",
         });
       }
     };
-
-    fetchProcessingFiles();
+    if (!isAuthenticated) {
+      fetchProcessingFiles();
+    }
   }, []);
 
   const handleFileSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -368,10 +370,10 @@ const HeroSection = () => {
         <div className="max-w-3xl mx-auto text-center">
           <h1 className="text-4xl font-bold mb-6">Улучшите <span style={{ color: '#FF7A00' }}>аудио</span> за пару кликов</h1>
           <p className="text-xl text-gray-600 mb-8">
-            Мощный AI-инструмент для быстрой и точной транскрибации аудио на русском языке
+            Мощный AI-инструмент для быстрой и точной транскрибации аудио
           </p>
           
-          {userPlan && (
+          {isAuthenticated && userPlan && (
             <div className="mb-6 p-3 bg-white rounded-lg shadow-sm border border-gray-100">
               <div className="flex items-center justify-between">
                 <div className="flex items-center space-x-2">
