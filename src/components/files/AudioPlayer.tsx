@@ -21,13 +21,16 @@ import {
   VolumeIcon,
   Download,
   CheckCircle,
-  Loader2
+  Loader2,
+  Lock
 } from 'lucide-react';
 import { TranscribedFile } from './FileList';
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import api from '@/lib/api';
 import { toast } from 'sonner';
 import { getAuthToken } from '@/lib/auth';
+import { UserProductPlan } from '@/types/userPlan';
+import UpgradePlanModal from '../modals/UpgradePlanModal';
 
 interface AudioPlayerProps {
   file: TranscribedFile;
@@ -36,6 +39,8 @@ interface AudioPlayerProps {
   onRemoveMelody: () => void;
   onRemoveVocals: () => void;
   onTranscriptionSelect?: (text: string) => void;
+  userPlan?: UserProductPlan;
+  isLoading?: boolean;
 }
 
 const formatTime = (time: number): string => {
@@ -51,7 +56,9 @@ const AudioPlayer: React.FC<AudioPlayerProps> = ({
   onRemoveNoise, 
   onRemoveMelody, 
   onRemoveVocals,
-  onTranscriptionSelect
+  onTranscriptionSelect,
+  userPlan,
+  isLoading
 }) => {
   const audioRef = useRef<HTMLAudioElement>(null);
   const enhancedAudioRef = useRef<HTMLAudioElement>(null);
@@ -66,6 +73,15 @@ const AudioPlayer: React.FC<AudioPlayerProps> = ({
   const [activeAudio, setActiveAudio] = useState<'original' | 'enhanced' | 'vocals' | 'instrumental'>('original');
   const [audioError, setAudioError] = useState<string | null>(null);
   const [audioLoaded, setAudioLoaded] = useState(false);
+  
+  // Модальное окно для предложения улучшить подписку
+  const [showUpgradeModal, setShowUpgradeModal] = useState(false);
+  const [featureToUpgrade, setFeatureToUpgrade] = useState('');
+  
+  // Проверка прав пользователя на основе подписки
+  const canRemoveNoise = !!userPlan?.is_can_remove_noise;
+  const canRemoveMelody = !!userPlan?.is_can_remove_melody;
+  const canRemoveVocal = !!userPlan?.is_can_remove_vocal;
   
   // Локальные состояния для процессов обработки
   const [noiseStatus, setNoiseStatus] = useState<'idle' | 'processing' | 'completed'>(
@@ -276,7 +292,7 @@ const AudioPlayer: React.FC<AudioPlayerProps> = ({
       }
       
       // Create URL for audio download endpoint
-      const downloadUrl = `${api.defaults.baseURL}/user-files/download?file_key=${fileKey}`;
+      const downloadUrl = `${api.defaults.baseURL}/user-files/download?file_key=${fileKey}&stream=True`;
       
       // Configure request with auth headers
       const headers = {
@@ -429,6 +445,13 @@ const AudioPlayer: React.FC<AudioPlayerProps> = ({
   };
   
   const handleRealRemoveNoise = async () => {
+    // Проверяем права подписки
+    if (!canRemoveNoise) {
+      setFeatureToUpgrade('Удаление шума');
+      setShowUpgradeModal(true);
+      return;
+    }
+    
     if (!file.id) return;
     
     try {
@@ -445,6 +468,13 @@ const AudioPlayer: React.FC<AudioPlayerProps> = ({
   };
   
   const handleRealRemoveMelody = async () => {
+    // Проверяем права подписки
+    if (!canRemoveMelody) {
+      setFeatureToUpgrade('Удаление мелодии');
+      setShowUpgradeModal(true);
+      return;
+    }
+    
     if (!file.id) return;
     
     try {
@@ -461,6 +491,13 @@ const AudioPlayer: React.FC<AudioPlayerProps> = ({
   };
   
   const handleRealRemoveVocals = async () => {
+    // Проверяем права подписки
+    if (!canRemoveVocal) {
+      setFeatureToUpgrade('Удаление вокала');
+      setShowUpgradeModal(true);
+      return;
+    }
+    
     if (!file.id) return;
     
     try {
@@ -474,6 +511,11 @@ const AudioPlayer: React.FC<AudioPlayerProps> = ({
       toast.error('Ошибка при удалении вокала');
       // Сбрасываем статус при ошибке
     }
+  };
+  
+  // Обработчик закрытия модального окна
+  const handleCloseUpgradeModal = () => {
+    setShowUpgradeModal(false);
   };
   
   // Update handler functions to use real API calls
@@ -786,162 +828,183 @@ const AudioPlayer: React.FC<AudioPlayerProps> = ({
       </div>
       
       {/* AI Tools section */}
-      <div className="w-full max-w-4xl mx-auto">
+      <div className="w-full max-w-4xl mx-auto mb-32">
         <div className="bg-gray-50 rounded-lg p-6">
-          <h3 className="text-lg font-medium mb-6">Инструменты AI</h3>
+          <h3 className="text-lg font-medium mb-4">Инструменты AI</h3>
           
-          {/* Processing indicator */}
-          {isProcessing && (
-            <div className="mb-6 flex items-center justify-center p-3 bg-blue-50 rounded-md">
-              <div className="h-4 w-4 rounded-full bg-blue-500 animate-pulse mr-2"></div>
-              <p className="text-sm text-primary">{processingType}...</p>
-            </div>
-          )}
-          
-          {/* Processing status indicators for individual tracks */}
-          {!isProcessing && (
-            <>
-              {noiseStatus === 'processing' && (
-                <div className="mb-6 flex items-center justify-center p-3 bg-blue-50 rounded-md">
+          {/* Processing indicators - Fixed position wrapper with minimum height */}
+          <div className="h-auto mb-4">
+            <div className="space-y-2">
+              {isProcessing && (
+                <div className="flex items-center justify-center p-2 bg-blue-50 rounded-md">
+                  <div className="h-4 w-4 rounded-full bg-blue-500 animate-pulse mr-2"></div>
+                  <p className="text-sm text-primary">{processingType}...</p>
+                </div>
+              )}
+              
+              {!isProcessing && noiseStatus === 'processing' && (
+                <div className="flex items-center justify-center p-2 bg-blue-50 rounded-md">
                   <div className="h-4 w-4 rounded-full bg-blue-500 animate-pulse mr-2"></div>
                   <p className="text-sm text-primary">Удаление шума...</p>
                 </div>
               )}
               
-              {melodyStatus === 'processing' && (
-                <div className="mb-6 flex items-center justify-center p-3 bg-blue-50 rounded-md">
+              {!isProcessing && melodyStatus === 'processing' && (
+                <div className="flex items-center justify-center p-2 bg-blue-50 rounded-md">
                   <div className="h-4 w-4 rounded-full bg-blue-500 animate-pulse mr-2"></div>
                   <p className="text-sm text-primary">Удаление музыки...</p>
                 </div>
               )}
               
-              {vocalsStatus === 'processing' && (
-                <div className="mb-6 flex items-center justify-center p-3 bg-blue-50 rounded-md">
+              {!isProcessing && vocalsStatus === 'processing' && (
+                <div className="flex items-center justify-center p-2 bg-blue-50 rounded-md">
                   <div className="h-4 w-4 rounded-full bg-blue-500 animate-pulse mr-2"></div>
                   <p className="text-sm text-primary">Удаление вокала...</p>
                 </div>
               )}
-            </>
-          )}
+            </div>
+          </div>
           
-          {/* AI Tools grid */}
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+          {/* AI Tools grid - Fixed heights for all items */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
             <TooltipProvider>
               
-              <div className="flex flex-col">
+              <div className="flex flex-col h-[85px]">
                 <Tooltip>
                   <TooltipTrigger asChild>
                     <Button 
                       onClick={handleRemoveNoise}
                       variant="outline" 
-                      className="flex items-center gap-2 h-auto py-3 w-full justify-start"
+                      className="flex items-center gap-2 py-2.5 w-full justify-start"
                       disabled={isProcessing || 
                                (file.removedNoiseFileUrl && file.removedNoiseFileUrl !== '') || 
                                (file.removed_noise_file_url && file.removed_noise_file_url !== '') || 
                                noiseStatus === 'processing' || 
                                noiseStatus === 'completed'}
                     >
+                      {!canRemoveNoise && <Lock className="h-4 w-4 mr-1" />}
                       <Volume2 className="h-5 w-5 text-primary" />
                       <span>Удалить шум</span>
                     </Button>
                   </TooltipTrigger>
                   <TooltipContent>
                     <p>Автоматически очистить аудио от фоновых шумов</p>
+                    {!canRemoveNoise && <p className="text-xs text-red-500 mt-1">Требуется улучшение подписки</p>}
                   </TooltipContent>
                 </Tooltip>
+                <div className="h-7 flex justify-center items-center mt-1">
                 {((file.removedNoiseFileUrl && file.removedNoiseFileUrl !== '') || 
                   (file.removed_noise_file_url && file.removed_noise_file_url !== '') || 
-                  noiseStatus === 'completed') && (
-                  <span className="text-xs bg-green-50 text-green-600 px-2 py-0.5 rounded-md font-medium flex items-center gap-1 mt-1 w-fit self-center">
+                  noiseStatus === 'completed') ? (
+                  <span className="text-xs bg-green-50 text-green-600 px-2 py-0.5 rounded-md font-medium flex items-center gap-1">
                     <CheckCircle className="h-3 w-3" />
                     Готово
                   </span>
-                )}
-                {noiseStatus === 'processing' && (
-                  <span className="text-xs bg-blue-50 text-blue-600 px-2 py-0.5 rounded-md font-medium flex items-center gap-1 mt-1 w-fit self-center">
+                ) : noiseStatus === 'processing' ? (
+                  <span className="text-xs bg-blue-50 text-blue-600 px-2 py-0.5 rounded-md font-medium flex items-center gap-1">
                     <Loader2 className="h-3 w-3 animate-spin" />
                     Обработка...
                   </span>
+                ) : (
+                  <span className="h-5"></span>
                 )}
+                </div>
               </div>
               
-              <div className="flex flex-col">
+              <div className="flex flex-col h-[85px]">
                 <Tooltip>
                   <TooltipTrigger asChild>
                     <Button 
                       onClick={handleRemoveMelody}
                       variant="outline" 
-                      className="flex items-center gap-2 h-auto py-3 w-full justify-start"
+                      className="flex items-center gap-2 py-2.5 w-full justify-start"
                       disabled={isProcessing || 
                                (file.removedMelodyFileUrl && file.removedMelodyFileUrl !== '') || 
                                (file.removed_melody_file_url && file.removed_melody_file_url !== '') || 
                                melodyStatus === 'processing' || 
                                melodyStatus === 'completed'}
                     >
+                      {!canRemoveMelody && <Lock className="h-4 w-4 mr-1" />}
                       <Music className="h-5 w-5 text-primary" />
                       <span>Удалить мелодию</span>
                     </Button>
                   </TooltipTrigger>
                   <TooltipContent>
                     <p>Удалить музыкальное сопровождение, оставив только голос</p>
+                    {!canRemoveMelody && <p className="text-xs text-red-500 mt-1">Требуется улучшение подписки</p>}
                   </TooltipContent>
                 </Tooltip>
+                <div className="h-7 flex justify-center items-center mt-1">
                 {((file.removedMelodyFileUrl && file.removedMelodyFileUrl !== '') || 
                   (file.removed_melody_file_url && file.removed_melody_file_url !== '') || 
-                  melodyStatus === 'completed') && (
-                  <span className="text-xs bg-green-50 text-green-600 px-2 py-0.5 rounded-md font-medium flex items-center gap-1 mt-1 w-fit self-center">
+                  melodyStatus === 'completed') ? (
+                  <span className="text-xs bg-green-50 text-green-600 px-2 py-0.5 rounded-md font-medium flex items-center gap-1">
                     <CheckCircle className="h-3 w-3" />
                     Готово
                   </span>
-                )}
-                {melodyStatus === 'processing' && (
-                  <span className="text-xs bg-blue-50 text-blue-600 px-2 py-0.5 rounded-md font-medium flex items-center gap-1 mt-1 w-fit self-center">
+                ) : melodyStatus === 'processing' ? (
+                  <span className="text-xs bg-blue-50 text-blue-600 px-2 py-0.5 rounded-md font-medium flex items-center gap-1">
                     <Loader2 className="h-3 w-3 animate-spin" />
                     Обработка...
                   </span>
+                ) : (
+                  <span className="h-5"></span>
                 )}
+                </div>
               </div>
               
-              <div className="flex flex-col">
+              <div className="flex flex-col h-[85px]">
                 <Tooltip>
                   <TooltipTrigger asChild>
                     <Button 
                       onClick={handleRemoveVocals}
                       variant="outline" 
-                      className="flex items-center gap-2 h-auto py-3 w-full justify-start"
+                      className="flex items-center gap-2 py-2.5 w-full justify-start"
                       disabled={isProcessing || 
                                (file.removedVocalsFileUrl && file.removedVocalsFileUrl !== '') || 
                                (file.removed_vocals_file_url && file.removed_vocals_file_url !== '') || 
                                vocalsStatus === 'processing' || 
                                vocalsStatus === 'completed'}
                     >
+                      {!canRemoveVocal && <Lock className="h-4 w-4 mr-1" />}
                       <MicOff className="h-5 w-5 text-primary" />
                       <span>Удалить вокал</span>
                     </Button>
                   </TooltipTrigger>
                   <TooltipContent>
                     <p>Удалить голос из аудио, оставив только дорожку</p>
+                    {!canRemoveVocal && <p className="text-xs text-red-500 mt-1">Требуется улучшение подписки</p>}
                   </TooltipContent>
                 </Tooltip>
+                <div className="h-7 flex justify-center items-center mt-1">
                 {((file.removedVocalsFileUrl && file.removedVocalsFileUrl !== '') || 
                   (file.removed_vocals_file_url && file.removed_vocals_file_url !== '') || 
-                  vocalsStatus === 'completed') && (
-                  <span className="text-xs bg-green-50 text-green-600 px-2 py-0.5 rounded-md font-medium flex items-center gap-1 mt-1 w-fit self-center">
+                  vocalsStatus === 'completed') ? (
+                  <span className="text-xs bg-green-50 text-green-600 px-2 py-0.5 rounded-md font-medium flex items-center gap-1">
                     <CheckCircle className="h-3 w-3" />
                     Готово
                   </span>
-                )}
-                {vocalsStatus === 'processing' && (
-                  <span className="text-xs bg-blue-50 text-blue-600 px-2 py-0.5 rounded-md font-medium flex items-center gap-1 mt-1 w-fit self-center">
+                ) : vocalsStatus === 'processing' ? (
+                  <span className="text-xs bg-blue-50 text-blue-600 px-2 py-0.5 rounded-md font-medium flex items-center gap-1">
                     <Loader2 className="h-3 w-3 animate-spin" />
                     Обработка...
                   </span>
+                ) : (
+                  <span className="h-5"></span>
                 )}
+                </div>
               </div>
             </TooltipProvider>
           </div>
         </div>
       </div>
+      
+      {/* Модальное окно для улучшения подписки */}
+      <UpgradePlanModal 
+        isOpen={showUpgradeModal} 
+        onClose={handleCloseUpgradeModal} 
+        feature={featureToUpgrade}
+      />
     </div>
   );
   

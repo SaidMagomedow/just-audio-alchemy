@@ -88,7 +88,8 @@ const HeroSection = () => {
         });
       }
     };
-    if (!isAuthenticated) {
+    // Загружаем файлы для обработки если пользователь аутентифицирован
+    if (isAuthenticated()) {
       fetchProcessingFiles();
     }
   }, []);
@@ -101,6 +102,9 @@ const HeroSection = () => {
         status: 'pending' as const
       }));
       setSelectedFiles(prev => [...prev, ...newFiles]);
+      if (allUploaded) {
+        setAllUploaded(false);
+      }
     }
   };
 
@@ -133,8 +137,11 @@ const HeroSection = () => {
         status: 'pending' as const
       }));
       setSelectedFiles(prev => [...prev, ...newFiles]);
+      if (allUploaded) {
+        setAllUploaded(false);
+      }
     }
-  }, []);
+  }, [allUploaded]);
 
   const removeFile = (index: number) => {
     setSelectedFiles(prev => prev.filter((_, i) => i !== index));
@@ -216,28 +223,32 @@ const HeroSection = () => {
   };
 
   const handleUpload = async () => {
-    if (selectedFiles.length === 0) return;
+    // Проверяем, есть ли файлы, ожидающие загрузки
+    const pendingFiles = selectedFiles.filter(file => file.status === 'pending');
+    if (pendingFiles.length === 0) return;
     
     setIsUploading(true);
     const fileIds: number[] = [];
     
-    // Загружаем файлы последовательно
+    // Загружаем только файлы, ожидающие загрузки
     for (let i = 0; i < selectedFiles.length; i++) {
-      const fileId = await uploadFile(selectedFiles[i], i);
-      if (fileId) {
-        fileIds.push(fileId);
+      if (selectedFiles[i].status === 'pending') {
+        const fileId = await uploadFile(selectedFiles[i], i);
+        if (fileId) {
+          fileIds.push(fileId);
+        }
       }
-    }
-    
-    // Если есть успешно загруженные файлы, запускаем транскрибацию
-    if (fileIds.length > 0) {
-      await startTranscription(fileIds);
     }
     
     setIsUploading(false);
     
-    // Если хотя бы один файл был успешно загружен
-    if (fileIds.length > 0) {
+    // Проверяем, все ли файлы загружены (после текущей операции)
+    const allFilesCompleted = selectedFiles.every(file => 
+      file.status === 'completed' || file.status === 'error'
+    );
+    
+    // Если все файлы загружены и мы загрузили хотя бы один в этой операции
+    if (allFilesCompleted) {
       setAllUploaded(true);
     }
   };
@@ -340,12 +351,20 @@ const HeroSection = () => {
     }
   };
 
+  // Определяем, должна ли кнопка показывать состояние "Запустить Audio.AI"
+  const shouldShowLaunchButton = () => {
+    return (selectedFiles.length > 0 && selectedFiles.every(file => file.status === 'completed' || file.status === 'error')) || 
+           (processingFiles.length > 0 && selectedFiles.length === 0);
+  };
+
   // Определяем, какой обработчик использовать для кнопки
   const handleButtonClick = () => {
-    if (allUploaded) {
-      navigateToMyFiles();
-    } else if (processingFiles.length > 0 && selectedFiles.length === 0) {
-      startProcessingFiles();
+    if (shouldShowLaunchButton()) {
+      if (processingFiles.length > 0 && selectedFiles.length === 0) {
+        startProcessingFiles();
+      } else {
+        navigateToMyFiles();
+      }
     } else {
       handleUpload();
     }
@@ -355,9 +374,7 @@ const HeroSection = () => {
   const getButtonText = () => {
     if (isUploading || isProcessing) {
       return "Загрузка...";
-    } else if (allUploaded) {
-      return "Запустить Audio.AI";
-    } else if (processingFiles.length > 0 && selectedFiles.length === 0) {
+    } else if (shouldShowLaunchButton()) {
       return "Запустить Audio.AI";
     } else {
       return "Загрузить";
@@ -373,7 +390,7 @@ const HeroSection = () => {
             Мощный AI-инструмент для быстрой и точной транскрибации аудио
           </p>
           
-          {isAuthenticated && userPlan && (
+          {isAuthenticated() && userPlan && (
             <div className="mb-6 p-3 bg-white rounded-lg shadow-sm border border-gray-100">
               <div className="flex items-center justify-between">
                 <div className="flex items-center space-x-2">
@@ -436,54 +453,66 @@ const HeroSection = () => {
           </div>
 
           {(selectedFiles.length > 0 || processingFiles.length > 0) && (
-            <div className="w-full max-w-xl bg-white rounded-lg shadow-sm border border-gray-100 p-4 space-y-4 animate-fade-in">
+            <div className="w-full bg-white rounded-lg shadow-sm border border-gray-100 p-4 space-y-4 animate-fade-in">
               <div className="text-sm font-medium text-gray-700 mb-2">
                 Выбранные файлы ({getDisplayFiles().length})
               </div>
               
               <div className="max-h-60 overflow-y-auto space-y-4 pr-2">
-                {getDisplayFiles().map((file, index) => (
-                  <div key={file.fileId || index} className="relative bg-gray-50 rounded-lg p-3">
-                    <div className="flex items-center justify-between mb-2">
-                      <div className="flex items-center space-x-2">
-                        {getFileIcon(file)}
-                        <div className="flex flex-col">
-                          <span className="text-sm font-medium truncate max-w-[300px]">
-                            {file.file.name}
-                          </span>
-                          <div className="flex items-center space-x-2">
-                            <span className="text-xs text-gray-500">
-                              {formatFileSize(file.file.size)}
+                {getDisplayFiles().map((file, index) => {
+                  // Создаем действительно уникальный ключ для каждого файла
+                  const uniqueKey = file.fileId ? `server-${file.fileId}` : `local-${index}`;
+                  return (
+                    <div key={uniqueKey} className="relative bg-gray-50 rounded-lg p-3">
+                      <div className="flex items-center justify-between mb-2">
+                        <div className="flex items-center space-x-2">
+                          {getFileIcon(file)}
+                          <div className="flex flex-col">
+                            <span className="text-sm font-medium truncate max-w-[300px]">
+                              {file.file.name}
                             </span>
-                            <span className="text-xs text-gray-400">
-                              {file.file.type.split('/')[1]?.toUpperCase() || 'Аудио файл'}
-                            </span>
-                            {getStatusText(file)}
+                            <div className="flex items-center space-x-2">
+                              <span className="text-xs text-gray-500">
+                                {formatFileSize(file.file.size)}
+                              </span>
+                              <span className="text-xs text-gray-400">
+                                {file.file.type.split('/')[1]?.toUpperCase() || 'Аудио файл'}
+                              </span>
+                              {getStatusText(file)}
+                            </div>
                           </div>
                         </div>
+                        
+                        {!isUploading && !file.fileId && (
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-7 w-7 text-gray-400 hover:text-red-500 hover:bg-red-50"
+                            onClick={() => {
+                              // Находим правильный индекс в selectedFiles
+                              const selectedIndex = selectedFiles.findIndex(
+                                f => f.file.name === file.file.name && f.status === file.status
+                              );
+                              if (selectedIndex !== -1) {
+                                removeFile(selectedIndex);
+                              }
+                            }}
+                          >
+                            <X className="h-4 w-4" />
+                          </Button>
+                        )}
                       </div>
-                      
-                      {!isUploading && !file.fileId && (
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="h-7 w-7 text-gray-400 hover:text-red-500 hover:bg-red-50"
-                          onClick={() => removeFile(index)}
-                        >
-                          <X className="h-4 w-4" />
-                        </Button>
-                      )}
+                      <Progress value={file.progress} className="h-1.5" />
                     </div>
-                    <Progress value={file.progress} className="h-1.5" />
-                  </div>
-                ))}
+                  );
+                })}
               </div>
               
               <Button 
                 variant="default"
                 style={{
                   backgroundColor: isUploading || isProcessing ? 'black' : 
-                                  (allUploaded || (processingFiles.length > 0 && selectedFiles.length === 0)) ? '#FF7A00' : 'black',
+                                  shouldShowLaunchButton() ? '#FF7A00' : 'black',
                   color: 'white',
                   transition: 'all 0.3s ease'
                 }}

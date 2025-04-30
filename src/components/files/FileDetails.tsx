@@ -4,13 +4,16 @@ import { TranscribedFile } from './FileList';
 import { Message } from './ChatInterface';
 import FileHeader from './FileHeader';
 import AudioPlayer from './AudioPlayer';
-import ChatInterface from './ChatInterface';
+import ChatInterface, { GptModel } from './ChatInterface';
 import Transcription from './Transcription';
 import api from '@/lib/api';
+import { getUserPlan } from '@/lib/api/userPlan';
+import { UserProductPlan } from '@/types/userPlan';
 import { toast } from "sonner";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { AlertCircle, ExternalLink, Loader2 } from "lucide-react";
+import { AlertCircle, ExternalLink, Loader2, Lock, Music } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import UpgradePlanModal from '../modals/UpgradePlanModal';
 
 interface FileDetailsProps {
   selectedFile: TranscribedFile | null;
@@ -45,11 +48,29 @@ const FileDetails: React.FC<FileDetailsProps> = ({
   const [isLoadingDetails, setIsLoadingDetails] = useState<boolean>(false);
   const [errorLoadingDetails, setErrorLoadingDetails] = useState<string>("");
   
+  // Состояние для хранения информации о плане пользователя
+  const [userPlan, setUserPlan] = useState<UserProductPlan | null>(null);
+  const [isLoadingPlan, setIsLoadingPlan] = useState<boolean>(false);
+  
+  // Модальное окно для предложения улучшить подписку
+  const [showUpgradeModal, setShowUpgradeModal] = useState(false);
+  const [featureToUpgrade, setFeatureToUpgrade] = useState('');
+  
+  // Проверка доступности GPT
+  const canUseGpt = !!userPlan?.is_can_use_gpt;
+  
   // Флаг для контроля автоматической прокрутки при переключении вкладок
   const [isTabSwitched, setIsTabSwitched] = useState<boolean>(false);
   
   // Изменяем обработчик смены вкладки
   const handleTabChange = (tab: string) => {
+    // Проверяем доступность GPT
+    if (tab === "chat" && !canUseGpt) {
+      setFeatureToUpgrade('GPT-ассистент');
+      setShowUpgradeModal(true);
+      return;
+    }
+    
     if (tab === "chat") {
       setIsTabSwitched(true);
       // Сбрасываем флаг через некоторое время, чтобы автопрокрутка возобновилась
@@ -69,6 +90,11 @@ const FileDetails: React.FC<FileDetailsProps> = ({
       setFileDetails(null);
     }
   }, [selectedFile?.id]);
+
+  // Fetch user plan information
+  useEffect(() => {
+    fetchUserPlan();
+  }, []);
 
   // Fetch chat history when selecting a file or when tab is changed to chat
   useEffect(() => {
@@ -121,6 +147,20 @@ const FileDetails: React.FC<FileDetailsProps> = ({
     }
   };
 
+  // Function to fetch user plan information
+  const fetchUserPlan = async () => {
+    try {
+      setIsLoadingPlan(true);
+      const plan = await getUserPlan();
+      setUserPlan(plan);
+    } catch (error) {
+      console.error('Ошибка при загрузке информации о подписке:', error);
+      // При ошибке оставляем userPlan как null
+    } finally {
+      setIsLoadingPlan(false);
+    }
+  };
+
   // Function to fetch chat history
   const fetchChatHistory = async () => {
     if (!selectedFile) return;
@@ -152,7 +192,7 @@ const FileDetails: React.FC<FileDetailsProps> = ({
   };
 
   // Function to send a message to the API
-  const handleSendMessage = async (messageText: string) => {
+  const handleSendMessage = async (messageText: string, model: GptModel = 'high-speed') => {
     if (!selectedFile) return;
     
     // Create a temporary message
@@ -167,9 +207,10 @@ const FileDetails: React.FC<FileDetailsProps> = ({
     setChatMessages(prev => [...prev, tempMessage]);
     
     try {
-      // Send message to API
+      // Send message to API with selected model
       const response = await api.post(`/chat/${selectedFile.id}`, {
-        message: messageText
+        message: messageText,
+        model: model // Добавляем модель в запрос
       });
       
       // Проверяем наличие ошибки
@@ -248,6 +289,13 @@ const FileDetails: React.FC<FileDetailsProps> = ({
   
   // Send selection to GPT chat
   const handleSendToGPT = (text: string) => {
+    // Проверяем доступность GPT
+    if (!canUseGpt) {
+      setFeatureToUpgrade('GPT-ассистент');
+      setShowUpgradeModal(true);
+      return;
+    }
+    
     handleSendMessage(`Анализ текста: ${text.slice(0, 100)}...`);
     setActiveTab("chat");
   };
@@ -267,10 +315,29 @@ const FileDetails: React.FC<FileDetailsProps> = ({
     return 'error';
   };
 
+  // Обработчик закрытия модального окна
+  const handleCloseUpgradeModal = () => {
+    setShowUpgradeModal(false);
+  };
+
   if (!selectedFile) {
     return (
-      <div className="w-full md:w-2/3 border rounded-lg shadow-sm flex items-center justify-center h-full text-gray-500 p-10">
-        Выберите файл для прослушивания
+      <div className="w-full md:w-2/3 border rounded-lg shadow-sm flex flex-col h-full">
+        <div className="p-4 border-b flex justify-between items-center">
+          <div className="animate-pulse">
+            <div className="h-4 w-32 bg-gray-200 rounded mb-2"></div>
+            <div className="h-3 w-24 bg-gray-200 rounded"></div>
+          </div>
+        </div>
+        <div className="flex-1 bg-gray-50 flex justify-center items-center p-8">
+          <div className="text-center text-gray-500">
+            <div className="mb-4">
+              <Music className="mx-auto h-12 w-12 text-gray-400" />
+            </div>
+            <p>Выберите файл из списка слева</p>
+            <p className="text-sm mt-1">или загрузите новый файл на главной странице</p>
+          </div>
+        </div>
       </div>
     );
   }
@@ -291,10 +358,17 @@ const FileDetails: React.FC<FileDetailsProps> = ({
   const fileToDisplay = fileDetails || selectedFile;
 
   return (
-    <div className="w-full md:w-2/3 border rounded-lg shadow-sm flex flex-col h-full" style={{ height: "calc(100vh - 200px)" }}>
+    <div className="w-full md:w-2/3 border rounded-lg shadow-sm flex flex-col h-[calc(100vh-100px)]">
       <FileHeader 
         file={fileToDisplay}
         onOpenAssistant={() => {
+          // Проверяем доступность GPT перед открытием ассистента
+          if (!canUseGpt) {
+            setFeatureToUpgrade('GPT-ассистент');
+            setShowUpgradeModal(true);
+            return;
+          }
+          
           onOpenAssistant();
           setIsTabSwitched(true);
           setActiveTab("chat");
@@ -316,11 +390,14 @@ const FileDetails: React.FC<FileDetailsProps> = ({
         </Alert>
       )}
       
-      <Tabs value={showChat ? "chat" : activeTab} onValueChange={handleTabChange} className="flex-1 flex flex-col h-full">
+      <Tabs value={showChat && canUseGpt ? "chat" : activeTab} onValueChange={handleTabChange} className="flex-1 flex flex-col h-full">
         <TabsList className="mx-4 mt-2">
           <TabsTrigger value="audio">Аудио</TabsTrigger>
           <TabsTrigger value="transcription">Расшифровка</TabsTrigger>
-          <TabsTrigger value="chat">GPT-ассистент</TabsTrigger>
+          <TabsTrigger value="chat" className="flex items-center gap-1">
+            GPT-ассистент
+            {!canUseGpt && <Lock className="h-3 w-3" />}
+          </TabsTrigger>
         </TabsList>
         
         {activeTab === "audio" && (
@@ -328,12 +405,20 @@ const FileDetails: React.FC<FileDetailsProps> = ({
             <AudioPlayer 
               file={fileToDisplay}
               onOpenAssistant={() => {
+                // Проверяем доступность GPT перед открытием ассистента
+                if (!canUseGpt) {
+                  setFeatureToUpgrade('GPT-ассистент');
+                  setShowUpgradeModal(true);
+                  return;
+                }
+                
                 onOpenAssistant();
                 setActiveTab("chat");
               }}
               onRemoveNoise={onRemoveNoise}
               onRemoveMelody={onRemoveMelody}
               onRemoveVocals={onRemoveVocals}
+              userPlan={userPlan}
             />
           </div>
         )}
@@ -347,14 +432,15 @@ const FileDetails: React.FC<FileDetailsProps> = ({
               transcriptionVtt={fileToDisplay.transcription_vtt}
               transcriptionSrt={fileToDisplay.transcription_srt}
               onSendToGPT={handleSendToGPT}
+              userPlan={userPlan}
             />
           </div>
         )}
         
         {activeTab === "chat" && (
-          <div className="flex-1 flex flex-col h-full" style={{ minHeight: "600px" }}>
+          <div className="flex-1 flex flex-col bg-white min-h-0">
             {limitExceeded && (
-              <Alert variant="destructive" className="mx-4 mt-2">
+              <Alert variant="destructive" className="mx-4 mt-2 mb-2 flex-shrink-0">
                 <AlertCircle className="h-4 w-4" />
                 <AlertTitle>Ограничение GPT-ассистента</AlertTitle>
                 <AlertDescription>
@@ -368,18 +454,28 @@ const FileDetails: React.FC<FileDetailsProps> = ({
               </Alert>
             )}
             
-            <ChatInterface 
-              messages={chatMessages}
-              onSendMessage={handleSendMessage}
-              fileName={fileToDisplay.name}
-              transcriptionContext={getTranscription()}
-              isLoading={isLoadingChat}
-              isLimitExceeded={limitExceeded}
-              disableAutoScroll={isTabSwitched}
-            />
+            <div className="flex-1 min-h-0">
+              <ChatInterface 
+                messages={chatMessages}
+                onSendMessage={handleSendMessage}
+                fileName={fileToDisplay.name}
+                transcriptionContext={getTranscription()}
+                isLoading={isLoadingChat}
+                isLimitExceeded={limitExceeded}
+                disableAutoScroll={isTabSwitched}
+                userPlan={userPlan}
+              />
+            </div>
           </div>
         )}
       </Tabs>
+      
+      {/* Модальное окно для улучшения подписки */}
+      <UpgradePlanModal 
+        isOpen={showUpgradeModal} 
+        onClose={handleCloseUpgradeModal} 
+        feature={featureToUpgrade}
+      />
     </div>
   );
 };

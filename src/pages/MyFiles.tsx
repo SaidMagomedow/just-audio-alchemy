@@ -171,7 +171,7 @@ const MyFiles: React.FC = () => {
             </div>
           </div>
         ) : (
-          <div className="flex flex-col md:flex-row gap-6 mb-8 min-h-[calc(100vh-250px)]">
+          <div className="flex flex-col md:flex-row gap-6 mb-8 min-h-[calc(100vh-150px)]">
             {/* List of files */}
             <FileList 
               files={files}

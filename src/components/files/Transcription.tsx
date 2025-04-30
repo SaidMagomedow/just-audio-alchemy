@@ -1,12 +1,14 @@
 import React, { useState, useEffect } from 'react';
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { MessageSquare } from 'lucide-react';
+import { MessageSquare, Lock } from 'lucide-react';
 import { toast } from "sonner";
 import { convertToWebVTT, convertToRST, convertToJSON } from '@/utils/transcriptionFormatters';
 import TranscriptionActions from './transcription/TranscriptionActions';
 import TranscriptionContent from './transcription/TranscriptionContent';
 import api from '@/lib/api';
+import { UserProductPlan } from '@/types/userPlan';
+import UpgradePlanModal from '../modals/UpgradePlanModal';
 
 interface TranscriptionProps {
   fileId: string;
@@ -15,6 +17,7 @@ interface TranscriptionProps {
   transcriptionVtt?: string;
   transcriptionSrt?: string;
   onSendToGPT: (text: string) => void;
+  userPlan?: UserProductPlan; // Добавляем информацию о подписке пользователя
 }
 
 const Transcription: React.FC<TranscriptionProps> = ({ 
@@ -23,7 +26,8 @@ const Transcription: React.FC<TranscriptionProps> = ({
   transcriptionText: initialTranscriptionText,
   transcriptionVtt: initialTranscriptionVtt,
   transcriptionSrt: initialTranscriptionSrt,
-  onSendToGPT 
+  onSendToGPT,
+  userPlan
 }) => {
   // Local state for all transcription formats
   const [transcription, setTranscription] = useState<any>(initialTranscription);
@@ -35,6 +39,16 @@ const Transcription: React.FC<TranscriptionProps> = ({
   const [editedText, setEditedText] = useState('');
   const [activeTab, setActiveTab] = useState("text");
   const [originalJson, setOriginalJson] = useState<any>(null);
+  
+  // Добавляем состояние для модального окна
+  const [showUpgradeModal, setShowUpgradeModal] = useState(false);
+  const [featureToUpgrade, setFeatureToUpgrade] = useState('');
+  
+  // Проверка поддержки форматов в подписке пользователя
+  const vttSupported = userPlan?.vtt_file_ext_support ? true : false;
+  const srtSupported = userPlan?.srt_file_ext_support ? true : false;
+  // Проверка доступности GPT
+  const canUseGpt = !!userPlan?.is_can_use_gpt;
   
   // Use the backend-provided transcription text if available, otherwise use the converted/processed one
   const processedTranscription = transcriptionText || (typeof transcription === 'string' ? transcription : '') || 
@@ -103,6 +117,19 @@ const Transcription: React.FC<TranscriptionProps> = ({
   };
   
   const handleCopy = () => {
+    // Проверка ограничений по подписке
+    if (activeTab === "webvtt" && !vttSupported) {
+      setFeatureToUpgrade('WebVTT');
+      setShowUpgradeModal(true);
+      return;
+    }
+    
+    if (activeTab === "srt" && !srtSupported) {
+      setFeatureToUpgrade('SRT');
+      setShowUpgradeModal(true);
+      return;
+    }
+    
     let textToCopy;
     
     switch (activeTab) {
@@ -129,6 +156,19 @@ const Transcription: React.FC<TranscriptionProps> = ({
   };
   
   const handleDownload = () => {
+    // Проверка ограничений по подписке
+    if (activeTab === "webvtt" && !vttSupported) {
+      setFeatureToUpgrade('WebVTT');
+      setShowUpgradeModal(true);
+      return;
+    }
+    
+    if (activeTab === "srt" && !srtSupported) {
+      setFeatureToUpgrade('SRT');
+      setShowUpgradeModal(true);
+      return;
+    }
+    
     let content;
     let extension;
     
@@ -240,6 +280,19 @@ const Transcription: React.FC<TranscriptionProps> = ({
 
   // Handle tab change - set edited text based on current format
   const handleTabChange = (value: string) => {
+    // Проверяем, доступен ли выбранный формат
+    if (value === "webvtt" && !vttSupported) {
+      setFeatureToUpgrade('WebVTT');
+      setShowUpgradeModal(true);
+      return;
+    }
+    
+    if (value === "srt" && !srtSupported) {
+      setFeatureToUpgrade('SRT');
+      setShowUpgradeModal(true);
+      return;
+    }
+    
     setActiveTab(value);
     
     // If editing, prep the edit text for the new tab format
@@ -260,6 +313,11 @@ const Transcription: React.FC<TranscriptionProps> = ({
     }
   };
 
+  // Обработчик закрытия модального окна
+  const handleCloseUpgradeModal = () => {
+    setShowUpgradeModal(false);
+  };
+
   // Update local state when props change
   useEffect(() => {
     setTranscription(initialTranscription);
@@ -268,6 +326,18 @@ const Transcription: React.FC<TranscriptionProps> = ({
     setTranscriptionSrt(initialTranscriptionSrt);
   }, [initialTranscription, initialTranscriptionText, initialTranscriptionVtt, initialTranscriptionSrt]);
 
+  // Обработчик отправки текста в GPT
+  const handleSendToGPT = () => {
+    // Проверяем доступность GPT
+    if (!canUseGpt) {
+      setFeatureToUpgrade('GPT-ассистент');
+      setShowUpgradeModal(true);
+      return;
+    }
+    
+    onSendToGPT(processedTranscription);
+  };
+
   return (
     <div className="flex-1 flex flex-col p-6">
       {/* Верхняя навигация с табами */}
@@ -275,8 +345,20 @@ const Transcription: React.FC<TranscriptionProps> = ({
         <Tabs value={activeTab} onValueChange={handleTabChange} className="w-full">
           <TabsList className="grid w-full" style={{ gridTemplateColumns: `repeat(4, 1fr)` }}>
             <TabsTrigger value="text">Текст</TabsTrigger>
-            <TabsTrigger value="webvtt">WebVTT</TabsTrigger>
-            <TabsTrigger value="srt">SRT</TabsTrigger>
+            <TabsTrigger 
+              value="webvtt" 
+              className="flex items-center gap-1"
+            >
+              WebVTT
+              {!vttSupported && <Lock className="h-3 w-3" />}
+            </TabsTrigger>
+            <TabsTrigger 
+              value="srt" 
+              className="flex items-center gap-1"
+            >
+              SRT
+              {!srtSupported && <Lock className="h-3 w-3" />}
+            </TabsTrigger>
             <TabsTrigger value="json">JSON</TabsTrigger>
           </TabsList>
         </Tabs>
@@ -313,15 +395,23 @@ const Transcription: React.FC<TranscriptionProps> = ({
         
         <div className="mt-4 flex justify-end">
           <Button 
-            onClick={() => onSendToGPT(processedTranscription)}
+            onClick={handleSendToGPT}
             variant="default"
             className="flex items-center gap-2"
           >
+            {!canUseGpt && <Lock className="h-4 w-4 mr-1" />}
             <MessageSquare className="h-4 w-4" />
             <span>Отправить в GPT</span>
           </Button>
         </div>
       </div>
+
+      {/* Модальное окно для улучшения подписки */}
+      <UpgradePlanModal 
+        isOpen={showUpgradeModal} 
+        onClose={handleCloseUpgradeModal} 
+        feature={featureToUpgrade}
+      />
     </div>
   );
 };
