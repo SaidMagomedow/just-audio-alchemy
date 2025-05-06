@@ -2,11 +2,11 @@ import axios, { AxiosError, AxiosInstance, InternalAxiosRequestConfig, AxiosResp
 import { getAuthToken, getDevAuthToken, isAuthenticated } from './auth';
 
 // Базовый URL для API
-const API_URL = 'http://localhost:8000';
+// const API_URL = 'http://localhost:8000';
 
 // Создаем экземпляр Axios
 const api: AxiosInstance = axios.create({
-  baseURL: API_URL,
+  baseURL: '/api',
   headers: {
     'Content-Type': 'application/json',
   }

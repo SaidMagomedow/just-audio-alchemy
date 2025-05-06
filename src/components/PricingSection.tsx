@@ -55,6 +55,7 @@ interface Product {
 interface PricingPlan {
   name: string;
   price: string;
+  originalPrice?: string;
   per: string;
   features: string[];
   cta: string;
@@ -64,6 +65,8 @@ interface PricingPlan {
   is_subs: boolean;
   minute_count: number;
   billing_cycle?: 'month' | 'year';
+  hasDiscount: boolean;
+  isCurrentPlan?: boolean;
 }
 
 // Получаем ID пользователя из localStorage
@@ -139,19 +142,28 @@ const PricingSection: React.FC<PricingSectionProps> = ({ userPlan }) => {
         const url = '/api/products/active';
         setDebugInfo(`Запрос: ${url}`);
         const response = await axios.get<Product[]>(url);
-        const transformed = response.data.map(product => ({
-          name: product.display_name,
-          price: product.price === 0 ? '0 ₽' : `${product.price.toLocaleString('ru-RU')} ₽`,
-          per: product.is_subs ? (product.billing_cycle === 'month' ? 'в месяц' : 'в год') : 'навсегда',
-          features: product.features || [],
-          cta: product.cta_text || `Выбрать ${product.display_name}`,
-          popular: product.slug === 'premium',
-          productId: product.uuid,
-          priceValue: product.price,
-          is_subs: product.is_subs,
-          minute_count: product.minute_count,
-          billing_cycle: product.billing_cycle as 'month' | 'year',
-        }));
+        const transformed = response.data.map(product => {
+          const hasDiscount = product.price_with_discount !== null;
+          const displayPrice = hasDiscount ? product.price_with_discount! : product.price;
+          const isCurrentPlan = userPlan?.product_id === product.uuid;
+          
+          return {
+            name: product.display_name,
+            price: displayPrice === 0 ? '0 ₽' : `${displayPrice.toLocaleString('ru-RU')} ₽`,
+            originalPrice: hasDiscount ? `${product.price.toLocaleString('ru-RU')} ₽` : undefined,
+            per: product.is_subs ? (product.billing_cycle === 'month' ? 'в месяц' : 'в год') : 'навсегда',
+            features: product.features || [],
+            cta: product.cta_text || `Выбрать ${product.display_name}`,
+            popular: product.slug === 'premium',
+            productId: product.uuid,
+            priceValue: hasDiscount ? product.price_with_discount! : product.price,
+            is_subs: product.is_subs,
+            minute_count: product.minute_count,
+            billing_cycle: product.billing_cycle as 'month' | 'year',
+            hasDiscount,
+            isCurrentPlan
+          }
+        });
         setPlans(transformed);
         setLoading(false);
         setDebugInfo(null);
@@ -163,10 +175,19 @@ const PricingSection: React.FC<PricingSectionProps> = ({ userPlan }) => {
       }
     };
     fetchProducts();
-  }, []);
+  }, [userPlan]);
 
   // Обработчик оплаты через CloudPayments
   const handlePayment = useCallback((plan: PricingPlan) => {
+    if (plan.isCurrentPlan) {
+      toast({
+        title: 'Это ваш текущий тариф',
+        description: 'Вы уже используете этот тарифный план',
+        duration: 3000
+      });
+      return;
+    }
+
     if (!getUserId()) {
       window.location.href = '/auth?redirect=pricing';
       return;
@@ -225,8 +246,8 @@ const PricingSection: React.FC<PricingSectionProps> = ({ userPlan }) => {
 
       widget.charge(
         {
-          publicId: 'pk_addba62205c5788cb5cfcfa1c94bc',
-          description: `Оплата тарифа ${plan.name} (пробный период)`,
+          publicId: 'pk_b679330daec18f771a64bb934bab9',
+          description: `Оплата тарифа ${plan.name} (пробный период) Далее будет списываться полная сумма`,
           amount: 1, // Стоимость за первую неделю (пробный период) - 1 рубль
           currency: 'RUB',
           accountId: getUserId()!.toString(),
@@ -256,9 +277,10 @@ const PricingSection: React.FC<PricingSectionProps> = ({ userPlan }) => {
   if (userPlan) {
     // Проверяем, что мы на странице профиля (не на главной)
     const isProfilePage = window.location.pathname.includes('/profile');
+    const isPricingPage = window.location.pathname === '/pricing';
     
     // На странице профиля показываем информацию о подписке
-    if (isProfilePage) {
+    if (isProfilePage && !isPricingPage) {
       return (
         <section className="py-10 bg-gray-50">
           <div className="container max-w-4xl mx-auto space-y-6">
@@ -353,7 +375,9 @@ const PricingSection: React.FC<PricingSectionProps> = ({ userPlan }) => {
     
     // Если мы на главной странице и у пользователя есть подписка,
     // не показываем раздел с тарифами вообще
-    return null;
+    if (!isPricingPage) {
+      return null;
+    }
   }
 
   if (loading) {
@@ -377,19 +401,29 @@ const PricingSection: React.FC<PricingSectionProps> = ({ userPlan }) => {
             <div 
               key={index} 
               className={`relative bg-white rounded-lg shadow-lg p-8 flex flex-col ${
+                plan.isCurrentPlan ? 'ring-2 ring-green-500' :
                 plan.popular ? 'ring-2 ring-[#F97316] transform hover:-translate-y-1' : 'hover:shadow-xl'
               } transition-all duration-200`}
             >
-              {plan.popular && (
+              {plan.popular && !plan.isCurrentPlan && (
                 <div className="absolute -top-3 left-1/2 transform -translate-x-1/2 bg-[#F97316] text-white px-3 py-1 rounded-full text-sm font-medium">
                   Популярный выбор
                 </div>
               )}
               
+              {plan.isCurrentPlan && (
+                <div className="absolute -top-3 left-1/2 transform -translate-x-1/2 bg-green-500 text-white px-3 py-1 rounded-full text-sm font-medium">
+                  Текущий тариф
+                </div>
+              )}
+              
               <div className="mb-8">
                 <h3 className="text-xl font-semibold mb-2">{plan.name}</h3>
-                <div className="flex items-baseline">
+                <div className="flex items-baseline flex-wrap">
                   <span className="text-4xl font-bold">{plan.price}</span>
+                  {plan.hasDiscount && plan.originalPrice && (
+                    <span className="ml-2 text-gray-400 line-through text-lg">{plan.originalPrice}</span>
+                  )}
                   <span className="ml-2 text-gray-500">/{plan.per}</span>
                 </div>
               </div>
@@ -406,10 +440,15 @@ const PricingSection: React.FC<PricingSectionProps> = ({ userPlan }) => {
               </ul>
               
               <button 
-                className="w-full mt-auto py-2 px-4 rounded-md text-white bg-black hover:bg-[#F97316] transition-colors duration-200"
+                className={`w-full mt-auto py-2 px-4 rounded-md text-white ${
+                  plan.isCurrentPlan 
+                    ? 'bg-green-500 cursor-default opacity-70' 
+                    : 'bg-black hover:bg-[#F97316] transition-colors duration-200'
+                }`}
                 onClick={() => handlePayment(plan)}
+                disabled={plan.isCurrentPlan}
               >
-                {plan.cta}
+                {plan.isCurrentPlan ? 'Текущий тариф' : plan.cta}
               </button>
             </div>
           ))}

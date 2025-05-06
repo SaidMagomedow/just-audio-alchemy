@@ -65,7 +65,7 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
         if (response.data && response.data.access_token) {
           // 4. Создаем данные пользователя с JWT токеном от нашего бэкенда
           const userData: User = {
-            id: result.user.uid,
+            id: response.data.user_id,
             name: result.user.displayName || 'User',
             email: result.user.email || '',
             photoURL: result.user.photoURL || '',
