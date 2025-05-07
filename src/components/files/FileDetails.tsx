@@ -56,6 +56,9 @@ const FileDetails: React.FC<FileDetailsProps> = ({
   const [showUpgradeModal, setShowUpgradeModal] = useState(false);
   const [featureToUpgrade, setFeatureToUpgrade] = useState('');
   
+  // Добавляем состояние для отслеживания статуса транскрипции
+  const [localTranscriptionStatus, setLocalTranscriptionStatus] = useState<string>('not started');
+  
   // Проверка доступности GPT
   const canUseGpt = !!userPlan?.is_can_use_gpt;
   
@@ -88,6 +91,7 @@ const FileDetails: React.FC<FileDetailsProps> = ({
       fetchFileDetails();
     } else {
       setFileDetails(null);
+      setLocalTranscriptionStatus('not started');
     }
   }, [selectedFile?.id]);
 
@@ -102,6 +106,22 @@ const FileDetails: React.FC<FileDetailsProps> = ({
       fetchChatHistory();
     }
   }, [selectedFile?.id, activeTab, showChat]);
+
+  // Синхронизируем localTranscriptionStatus с данными файла при их изменении
+  useEffect(() => {
+    if (fileDetails && fileDetails.fileTranscriptionStatus) {
+      // Только если текущий статус не 'processing' (чтобы не сбрасывать статус во время обработки)
+      if (localTranscriptionStatus !== 'processing') {
+        setLocalTranscriptionStatus(fileDetails.fileTranscriptionStatus);
+      }
+    } else if (selectedFile && selectedFile.fileTranscriptionStatus) {
+      // Если у нас нет fileDetails, но есть selectedFile
+      if (localTranscriptionStatus !== 'processing') {
+        setLocalTranscriptionStatus(selectedFile.fileTranscriptionStatus);
+      }
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [fileDetails?.fileTranscriptionStatus, selectedFile?.fileTranscriptionStatus]);
 
   // Function to fetch file details
   const fetchFileDetails = async () => {
@@ -134,6 +154,7 @@ const FileDetails: React.FC<FileDetailsProps> = ({
           fileRemoveNoiseStatus: response.data.removed_noise_file_status,
           fileRemoveMelodyStatus: response.data.removed_melody_file_status,
           fileRemoveVocalStatus: response.data.removed_vocal_file_status,
+          fileTranscriptionStatus: response.data.transcription_status || 'not started'
         };
         
         setFileDetails(details);
@@ -300,6 +321,11 @@ const FileDetails: React.FC<FileDetailsProps> = ({
     setActiveTab("chat");
   };
 
+  // Обработчик изменения статуса транскрипции
+  const handleTranscriptionStatusChange = (status: string) => {
+    setLocalTranscriptionStatus(status);
+  };
+
   // Форматирование длительности в минуты:секунды
   const formatDuration = (seconds: number): string => {
     if (!seconds) return '00:00';
@@ -431,8 +457,10 @@ const FileDetails: React.FC<FileDetailsProps> = ({
               transcriptionText={fileToDisplay.transcription_text}
               transcriptionVtt={fileToDisplay.transcription_vtt}
               transcriptionSrt={fileToDisplay.transcription_srt}
+              transcriptionStatus={localTranscriptionStatus}
               onSendToGPT={handleSendToGPT}
               userPlan={userPlan}
+              onTranscriptionStatusChange={handleTranscriptionStatusChange}
             />
           </div>
         )}

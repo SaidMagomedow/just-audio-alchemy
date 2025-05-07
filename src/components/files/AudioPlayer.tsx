@@ -294,79 +294,52 @@ const AudioPlayer: React.FC<AudioPlayerProps> = ({
       // Create URL for audio download endpoint
       const downloadUrl = `${api.defaults.baseURL}/user-files/download?file_key=${fileKey}&stream=True`;
       
-      // Configure request with auth headers
-      const headers = {
-        'Authorization': `Bearer ${authToken}`
+      // Установка обработчиков событий
+      const handleCanPlay = () => {
+        console.log('Audio can play now!');
+        setAudioLoaded(true);
       };
+
+      const handleError = (e: Event) => {
+        console.error('Error loading audio:', e);
+        setAudioError('Ошибка загрузки аудио: формат не поддерживается');
+      };
+
+      audioElement.addEventListener('canplay', handleCanPlay, { once: true });
+      audioElement.addEventListener('error', handleError, { once: true });
       
-      // Make an authorized fetch request to the download endpoint
-      const response = await fetch(downloadUrl, { headers });
+      // Настройка атрибутов для потокового воспроизведения
+      audioElement.preload = 'auto';
       
-      if (!response.ok) {
-        throw new Error(`Ошибка загрузки: ${response.status} ${response.statusText}`);
-      }
+      // Напрямую устанавливаем src с URL, включающим заголовки авторизации
+      // MediaSource API или srcObject не поддерживают передачу заголовков,
+      // поэтому используем прокси через медиа-эндпоинт нашего API,
+      // который уже включает авторизацию
+      audioElement.src = downloadUrl;
       
-      // 1) Получаем "сырые" байты
-      const arrayBuffer = await response.arrayBuffer();
+      // Вставляем заголовок авторизации в объект audio
+      // Так как audio.src не позволяет передать заголовки напрямую,
+      // используем прокси-запрос к нашему API с токеном в query params
+      audioElement.crossOrigin = 'anonymous';
       
-      // 2) Читаем Content-Type из заголовков (или ставим mp3 по умолчанию)
-      let contentType = response.headers.get('Content-Type') || 'audio/mpeg';
+      // Устанавливаем заголовок авторизации через дополнительный параметр в URL
+      audioElement.src = `${downloadUrl}&auth_token=${encodeURIComponent(authToken)}`;
       
-      // Убеждаемся, что у нас аудио-тип (если сервер отдал application/octet-stream)
-      if (contentType === 'application/octet-stream') {
-        // Определяем тип по расширению файла
-        if (fileKey.endsWith('.mp3')) {
-          contentType = 'audio/mpeg';
-        } else if (fileKey.endsWith('.wav')) {
-          contentType = 'audio/wav';
-        } else if (fileKey.endsWith('.ogg')) {
-          contentType = 'audio/ogg';
-        } else if (fileKey.endsWith('.flac')) {
-          contentType = 'audio/flac';
-        } else {
-          contentType = 'audio/mpeg'; // По умолчанию mp3
-        }
-      }
-      
-      // 3) Явно создаём Blob с нужным MIME
-      const blob = new Blob([arrayBuffer], { type: contentType });
-      console.log('✅ blob size:', blob.size, 'type:', blob.type);
-      
-      // Проверяем, что blob не пустой
-      if (blob.size === 0) {
-        throw new Error('Получен пустой аудиофайл (размер 0 байт)');
-      }
-      
-      const objectUrl = URL.createObjectURL(blob);
-      
-      // Сначала устанавливаем обработчик событий, затем загружаем аудио
       return new Promise<boolean>((resolve) => {
-        const handleCanPlay = () => {
-          console.log('Audio can play now!');
-          setAudioLoaded(true);
+        // Устанавливаем дополнительные обработчики для Promise
+        const canPlayHandler = () => {
           resolve(true);
         };
-
-        const handleError = (e: Event) => {
-          console.error('Error loading audio:', e);
-          setAudioError('Ошибка загрузки аудио: формат не поддерживается');
+        
+        const errorHandler = () => {
           resolve(false);
         };
-
-        audioElement.addEventListener('canplaythrough', handleCanPlay, { once: true });
-        audioElement.addEventListener('error', handleError, { once: true });
         
-        // Устанавливаем источник и начинаем загрузку
-        audioElement.src = objectUrl;
+        audioElement.addEventListener('canplay', canPlayHandler, { once: true });
+        audioElement.addEventListener('error', errorHandler, { once: true });
+        
+        // Запускаем загрузку
         audioElement.load();
-        
-        // Устанавливаем таймаут на случай, если события не сработают
-        setTimeout(() => {
-          if (!audioElement.src) {
-            setAudioError('Таймаут при загрузке аудио');
-            resolve(false);
-          }
-        }, 100000); // 10 секунд таймаут
       });
       
     } catch (error) {
@@ -382,17 +355,19 @@ const AudioPlayer: React.FC<AudioPlayerProps> = ({
       return;
     }
     
-    // If we have an error or need to load the audio
-    if (audioError || !audioLoaded) {
-      const success = await loadAudioWithAuth();
-      if (!success) return; // If loading failed, don't try to play
-    }
-    
     const audioElement = getCurrentAudioRef().current;
     if (!audioElement) return;
     
+    // Если у нас ошибка или аудио еще не загружено
+    if (audioError || !audioLoaded) {
+      // Начинаем загрузку аудио
+      const loadingStarted = await loadAudioWithAuth();
+      if (!loadingStarted) return; // Если не удалось начать загрузку
+    }
+    
     try {
-      // Воспроизводим звук, теперь мы уверены что аудио загружено и готово
+      // Пытаемся начать воспроизведение сразу, не дожидаясь полной загрузки
+      // Браузер сам будет управлять буферизацией и воспроизведением
       await audioElement.play();
       setIsPlaying(true);
     } catch (error) {

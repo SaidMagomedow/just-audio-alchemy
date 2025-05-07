@@ -22,6 +22,7 @@ interface ApiFile {
   transcription_text?: string;
   transcription_vtt?: string;
   transcription_srt?: string;
+  transcription_status?: string;
   duration?: number;
   removed_noise_file_url?: string;
   removed_melody_file_url?: string;
@@ -71,6 +72,7 @@ const MyFiles: React.FC = () => {
             fileRemoveNoiseStatus: file.removed_noise_file_status,
             fileRemoveMelodyStatus: file.removed_melody_file_status,
             fileRemoveVocalStatus: file.removed_vocal_file_status,
+            fileTranscriptionStatus: file.transcription_status || 'not started'
           }));
           
           setFiles(transformedFiles);

@@ -34,6 +34,7 @@ export interface TranscribedFile {
   removed_melody_file_url?: string;
   removed_vocals_file_url?: string;
   // Processing status from backend enums
+  fileTranscriptionStatus?: 'not started' | 'processing' | 'completed' | 'failed';
   fileRemoveNoiseStatus?: 'not started' | 'processing' | 'completed' | 'failed';
   fileRemoveMelodyStatus?: 'not started' | 'processing' | 'completed' | 'failed';
   fileRemoveVocalStatus?: 'not started' | 'processing' | 'completed' | 'failed';

@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { MessageSquare, Lock } from 'lucide-react';
+import { MessageSquare, Lock, FileText, Loader2, AlertCircle, CheckCircle } from 'lucide-react';
 import { toast } from "sonner";
 import { convertToWebVTT, convertToRST, convertToJSON } from '@/utils/transcriptionFormatters';
 import TranscriptionActions from './transcription/TranscriptionActions';
@@ -16,8 +16,10 @@ interface TranscriptionProps {
   transcriptionText?: string;
   transcriptionVtt?: string;
   transcriptionSrt?: string;
+  transcriptionStatus?: string; // Добавляем статус расшифровки
   onSendToGPT: (text: string) => void;
   userPlan?: UserProductPlan; // Добавляем информацию о подписке пользователя
+  onTranscriptionStatusChange?: (status: string) => void; // Добавляем обработчик изменения статуса
 }
 
 const Transcription: React.FC<TranscriptionProps> = ({ 
@@ -26,14 +28,17 @@ const Transcription: React.FC<TranscriptionProps> = ({
   transcriptionText: initialTranscriptionText,
   transcriptionVtt: initialTranscriptionVtt,
   transcriptionSrt: initialTranscriptionSrt,
+  transcriptionStatus: initialTranscriptionStatus = 'not started', // По умолчанию статус "не начато"
   onSendToGPT,
-  userPlan
+  userPlan,
+  onTranscriptionStatusChange
 }) => {
   // Local state for all transcription formats
   const [transcription, setTranscription] = useState<any>(initialTranscription);
   const [transcriptionText, setTranscriptionText] = useState(initialTranscriptionText);
   const [transcriptionVtt, setTranscriptionVtt] = useState(initialTranscriptionVtt);
   const [transcriptionSrt, setTranscriptionSrt] = useState(initialTranscriptionSrt);
+  const [transcriptionStatus, setTranscriptionStatus] = useState(initialTranscriptionStatus);
   
   const [isEditing, setIsEditing] = useState(false);
   const [editedText, setEditedText] = useState('');
@@ -43,6 +48,11 @@ const Transcription: React.FC<TranscriptionProps> = ({
   // Добавляем состояние для модального окна
   const [showUpgradeModal, setShowUpgradeModal] = useState(false);
   const [featureToUpgrade, setFeatureToUpgrade] = useState('');
+  
+  // Обновляем состояние для отслеживания процесса транскрибирования
+  // в соответствии с переданным статусом из props
+  const [isTranscribing, setIsTranscribing] = useState(transcriptionStatus === 'processing');
+  const [transcriptionFailed, setTranscriptionFailed] = useState(transcriptionStatus === 'failed');
   
   // Проверка поддержки форматов в подписке пользователя
   const vttSupported = userPlan?.vtt_file_ext_support ? true : false;
@@ -324,7 +334,14 @@ const Transcription: React.FC<TranscriptionProps> = ({
     setTranscriptionText(initialTranscriptionText);
     setTranscriptionVtt(initialTranscriptionVtt);
     setTranscriptionSrt(initialTranscriptionSrt);
-  }, [initialTranscription, initialTranscriptionText, initialTranscriptionVtt, initialTranscriptionSrt]);
+    setTranscriptionStatus(initialTranscriptionStatus);
+  }, [initialTranscription, initialTranscriptionText, initialTranscriptionVtt, initialTranscriptionSrt, initialTranscriptionStatus]);
+
+  // Синхронизируем состояния с transcriptionStatus
+  useEffect(() => {
+    setIsTranscribing(transcriptionStatus === 'processing');
+    setTranscriptionFailed(transcriptionStatus === 'failed');
+  }, [transcriptionStatus]);
 
   // Обработчик отправки текста в GPT
   const handleSendToGPT = () => {
@@ -336,6 +353,43 @@ const Transcription: React.FC<TranscriptionProps> = ({
     }
     
     onSendToGPT(processedTranscription);
+  };
+
+  // Функция для запуска транскрибирования
+  const handleStartTranscription = async () => {
+    if (!fileId) return;
+    
+    try {
+      // Устанавливаем состояние в processing
+      handleTranscriptionStatusChange('processing');
+      setIsTranscribing(true);
+      setTranscriptionFailed(false);
+      
+      // Вызываем API для запуска транскрибирования
+      await api.post('/audio/convert/file/transcription', {
+        file_ids: [parseInt(fileId)]
+      });
+      
+      toast.success("Расшифровка аудио запущена. Это может занять некоторое время.");
+      
+      // Оставляем индикатор загрузки активным, так как процесс идет на сервере
+      // Реальное обновление произойдет при следующем получении данных о файле
+    } catch (error) {
+      console.error('Error starting transcription:', error);
+      toast.error("Ошибка при запуске расшифровки");
+      // В случае ошибки устанавливаем статус в failed
+      handleTranscriptionStatusChange('failed');
+      setIsTranscribing(false);
+      setTranscriptionFailed(true);
+    }
+  };
+
+  // Обработчик изменения статуса
+  const handleTranscriptionStatusChange = (status: string) => {
+    if (onTranscriptionStatusChange) {
+      onTranscriptionStatusChange(status);
+    }
+    setTranscriptionStatus(status);
   };
 
   return (
@@ -368,7 +422,27 @@ const Transcription: React.FC<TranscriptionProps> = ({
       <div className="w-full max-w-4xl mx-auto">
         <div className="bg-gray-50 rounded-lg overflow-hidden">
           <div className="flex justify-between items-center p-4 border-b">
-            <h3 className="text-lg font-medium">Расшифровка</h3>
+            <h3 className="text-lg font-medium">
+              Расшифровка
+              {transcriptionStatus === 'processing' && (
+                <span className="ml-2 text-xs bg-blue-100 text-blue-700 px-2 py-1 rounded-full inline-flex items-center">
+                  <Loader2 className="h-3 w-3 mr-1 animate-spin" />
+                  В процессе
+                </span>
+              )}
+              {transcriptionStatus === 'completed' && (
+                <span className="ml-2 text-xs bg-green-100 text-green-700 px-2 py-1 rounded-full inline-flex items-center">
+                  <CheckCircle className="h-3 w-3 mr-1" />
+                  Готово
+                </span>
+              )}
+              {transcriptionStatus === 'failed' && (
+                <span className="ml-2 text-xs bg-red-100 text-red-700 px-2 py-1 rounded-full inline-flex items-center">
+                  <AlertCircle className="h-3 w-3 mr-1" />
+                  Ошибка
+                </span>
+              )}
+            </h3>
             
             <div className="flex gap-2">
               <TranscriptionActions 
@@ -383,13 +457,88 @@ const Transcription: React.FC<TranscriptionProps> = ({
           </div>
 
           <div className="p-6 min-h-[250px]">
-            <TranscriptionContent 
-              activeTab={activeTab}
-              isEditing={isEditing}
-              editedText={editedText}
-              processedTranscription={isEditing ? editedText : getTranscriptionContent()}
-              onEditChange={setEditedText}
-            />
+            {/* Проверяем статус расшифровки */}
+            {transcriptionStatus === 'not started' && (
+              <div className="flex flex-col items-center justify-center h-full gap-4 py-8">
+                <p className="text-gray-500 text-center mb-4">Расшифровка не запущена</p>
+                <Button 
+                  onClick={handleStartTranscription}
+                  variant="default"
+                  className="flex items-center gap-2"
+                >
+                  <FileText className="h-4 w-4" />
+                  <span>Запустить расшифровку</span>
+                </Button>
+              </div>
+            )}
+            
+            {transcriptionStatus === 'processing' && (
+              <div className="flex flex-col items-center justify-center h-full gap-4 py-8">
+                <Loader2 className="h-8 w-8 text-primary animate-spin" />
+                <p className="text-gray-600">Расшифровка аудио в процессе...</p>
+                <p className="text-gray-500 text-sm">Это может занять некоторое время в зависимости от длины аудио.</p>
+              </div>
+            )}
+            
+            {transcriptionStatus === 'failed' && (
+              <div className="flex flex-col items-center justify-center h-full gap-4 py-8">
+                <AlertCircle className="h-8 w-8 text-red-500" />
+                <p className="text-gray-600 text-center">Расшифровка прошла с ошибкой, попробуйте немного позднее</p>
+                <Button 
+                  onClick={handleStartTranscription}
+                  variant="default"
+                  className="flex items-center gap-2 mt-2"
+                >
+                  <FileText className="h-4 w-4" />
+                  <span>Повторить расшифровку</span>
+                </Button>
+              </div>
+            )}
+            
+            {transcriptionStatus === 'completed' && (
+              <TranscriptionContent 
+                activeTab={activeTab}
+                isEditing={isEditing}
+                editedText={editedText}
+                processedTranscription={isEditing ? editedText : getTranscriptionContent()}
+                onEditChange={setEditedText}
+              />
+            )}
+            
+            {/* Если у нас нет явного статуса, но есть данные расшифровки */}
+            {transcriptionStatus !== 'not started' && 
+             transcriptionStatus !== 'processing' && 
+             transcriptionStatus !== 'failed' && 
+             transcriptionStatus !== 'completed' && 
+             processedTranscription && 
+             processedTranscription !== 'Аудиофайл не имеет расшифровки.' && (
+              <TranscriptionContent 
+                activeTab={activeTab}
+                isEditing={isEditing}
+                editedText={editedText}
+                processedTranscription={isEditing ? editedText : getTranscriptionContent()}
+                onEditChange={setEditedText}
+              />
+            )}
+            
+            {/* Если у нас нет явного статуса и нет данных расшифровки */}
+            {transcriptionStatus !== 'not started' && 
+             transcriptionStatus !== 'processing' && 
+             transcriptionStatus !== 'failed' && 
+             transcriptionStatus !== 'completed' && 
+             (!processedTranscription || processedTranscription === 'Аудиофайл не имеет расшифровки.') && (
+              <div className="flex flex-col items-center justify-center h-full gap-4 py-8">
+                <p className="text-gray-500 text-center mb-4">Расшифровка не найдена</p>
+                <Button 
+                  onClick={handleStartTranscription}
+                  variant="default"
+                  className="flex items-center gap-2"
+                >
+                  <FileText className="h-4 w-4" />
+                  <span>Запустить расшифровку</span>
+                </Button>
+              </div>
+            )}
           </div>
         </div>
         
@@ -398,6 +547,8 @@ const Transcription: React.FC<TranscriptionProps> = ({
             onClick={handleSendToGPT}
             variant="default"
             className="flex items-center gap-2"
+            disabled={transcriptionStatus !== 'completed' || 
+                      (!processedTranscription || processedTranscription === 'Аудиофайл не имеет расшифровки.')}
           >
             {!canUseGpt && <Lock className="h-4 w-4 mr-1" />}
             <MessageSquare className="h-4 w-4" />
