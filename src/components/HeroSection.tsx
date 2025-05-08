@@ -9,6 +9,7 @@ import api from '@/lib/api';
 import { getUserPlan } from '@/lib/api/userPlan';
 import { UserProductPlan } from '@/types/userPlan';
 import { isAuthenticated } from '@/lib/auth';
+import AuthRequiredModal from './modals/AuthRequiredModal';
 
 interface SelectedFile {
   file: File;
@@ -45,6 +46,7 @@ const HeroSection = () => {
   const [dragActive, setDragActive] = useState(false);
   const [userPlan, setUserPlan] = useState<UserProductPlan | null>(null);
   const [loadingPlan, setLoadingPlan] = useState(true);
+  const [showAuthModal, setShowAuthModal] = useState(false);
   const navigate = useNavigate();
 
   // Загрузка данных о плане пользователя
@@ -227,6 +229,12 @@ const HeroSection = () => {
     const pendingFiles = selectedFiles.filter(file => file.status === 'pending');
     if (pendingFiles.length === 0) return;
     
+    // Check if user is authenticated
+    if (!isAuthenticated()) {
+      setShowAuthModal(true);
+      return;
+    }
+    
     setIsUploading(true);
     const fileIds: number[] = [];
     
@@ -251,6 +259,10 @@ const HeroSection = () => {
     if (allFilesCompleted) {
       setAllUploaded(true);
     }
+  };
+
+  const handleCloseAuthModal = () => {
+    setShowAuthModal(false);
   };
 
   const navigateToMyFiles = () => {
@@ -361,6 +373,11 @@ const HeroSection = () => {
   const handleButtonClick = () => {
     if (shouldShowLaunchButton()) {
       if (processingFiles.length > 0 && selectedFiles.length === 0) {
+        // Check if user is authenticated before starting processing
+        if (!isAuthenticated()) {
+          setShowAuthModal(true);
+          return;
+        }
         startProcessingFiles();
       } else {
         navigateToMyFiles();
@@ -385,9 +402,9 @@ const HeroSection = () => {
     <section className="relative bg-gray-50 py-16 md:py-24">
       <div className="container">
         <div className="max-w-3xl mx-auto text-center">
-          <h1 className="text-4xl font-bold mb-6">Улучшите <span style={{ color: '#FF7A00' }}>аудио</span> за пару кликов</h1>
+          <h1 className="text-4xl font-bold mb-6">Ваш <span style={{ color: '#FF7A00' }}>аудио</span>-инженер на базе AI</h1>
           <p className="text-xl text-gray-600 mb-8">
-            Мощный AI-инструмент для быстрой и точной транскрибации аудио
+            Улучшайте качество до студийного, удаляйте шумы, разделяйте вокал и фон, получайте транскрипцию и субтитры — быстро и точно.
           </p>
           
           {isAuthenticated() && userPlan && (
@@ -529,6 +546,13 @@ const HeroSection = () => {
           )}
         </div>
       </div>
+      
+      {/* Add authentication modal */}
+      <AuthRequiredModal 
+        isOpen={showAuthModal} 
+        onClose={handleCloseAuthModal} 
+        action="загрузить файлы"
+      />
     </section>
   );
 };

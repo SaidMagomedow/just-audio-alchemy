@@ -301,9 +301,9 @@ const PricingSection: React.FC<PricingSectionProps> = ({ userPlan }) => {
                     <span className="text-sm font-medium">Стоимость:</span>
                     <span className="text-sm text-gray-700 font-medium">{userPlan.amount} ₽</span>
                   </div>
-                  <Button className="w-full bg-accent-orange hover:bg-orange-600">
-                    Управление подпиской
-                  </Button>
+                  {/*<Button className="w-full bg-black hover:bg-[#F97316]">*/}
+                  {/*  Управление подпиской*/}
+                  {/*</Button>*/}
                 </div>
               </CardContent>
             </Card>

@@ -1,4 +1,3 @@
-
 import React from 'react';
 import { TranscribedFile } from './FileList';
 
@@ -8,6 +7,7 @@ interface FileHeaderProps {
   onRemoveNoise: () => void;
   onRemoveMelody: () => void;
   onRemoveVocals: () => void;
+  onEnhanceAudio: () => void;
 }
 
 // Format date utility

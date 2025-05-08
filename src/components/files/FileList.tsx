@@ -29,10 +29,12 @@ export interface TranscribedFile {
   removedNoiseFileUrl?: string;
   removedMelodyFileUrl?: string;
   removedVocalsFileUrl?: string;
+  enhancedAudioFileUrl?: string;
   // Snake_case versions (from API)
   removed_noise_file_url?: string;
   removed_melody_file_url?: string;
   removed_vocals_file_url?: string;
+  enhanced_audio_file_url?: string;
   // Processing status from backend enums
   fileTranscriptionStatus?: 'not started' | 'processing' | 'completed' | 'failed';
   fileRemoveNoiseStatus?: 'not started' | 'processing' | 'completed' | 'failed';

@@ -11,6 +11,7 @@ export interface UserProductPlan {
   is_can_remove_melody: boolean;
   is_can_remove_vocal: boolean;
   is_can_remove_noise: boolean;
+  is_can_enhance_audio: boolean;
   is_subscription: boolean;
   amount: number;
   expires_at: string;

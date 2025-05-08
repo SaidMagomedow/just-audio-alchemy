@@ -75,6 +75,10 @@ const Auth = () => {
       await loginWithGoogle();
       // После успешной авторизации перенаправляем на главную страницу
       navigate('/');
+      // Перезагружаем страницу после перехода
+      setTimeout(() => {
+        window.location.reload();
+      }, 100);
       toast({
         title: "Успешная авторизация",
         description: "Вы успешно вошли в систему через Google",
@@ -143,6 +147,10 @@ const Auth = () => {
           description: "Авторизация успешна!"
         });
         navigate('/');
+        // Перезагружаем страницу после перехода
+        setTimeout(() => {
+          window.location.reload();
+        }, 100);
       } else {
         throw new Error('Некорректный ответ от сервера');
       }
@@ -219,7 +227,7 @@ const Auth = () => {
                         </FormControl>
                         <div className="space-y-1 leading-none">
                           <FormLabel className="text-sm font-normal">
-                            Я согласен с <a href="#" className="text-primary underline">условиями использования</a>
+                            Я согласен с <a href="/privacy" className="text-primary underline">условиями использования</a>
                           </FormLabel>
                         </div>
                       </FormItem>

@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { AuthContext, User, getUserFromLocalStorage, setAuthToken, saveUserToLocalStorage, removeUserFromLocalStorage } from './auth';
+import { AuthContext, User, getUserFromLocalStorage, setAuthToken, saveUserToLocalStorage, removeUserFromLocalStorage, removeAuthToken } from './auth';
 import { auth, googleProvider } from './firebase';
 import { signInWithPopup, signOut } from 'firebase/auth';
 import { toast } from 'sonner';
@@ -101,6 +101,8 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
       await signOut(auth);
       setUser(null);
       removeUserFromLocalStorage();
+      removeAuthToken();
+      window.location.reload();
       toast.success('Выход выполнен успешно');
     } catch (error) {
       console.error('Logout error:', error);

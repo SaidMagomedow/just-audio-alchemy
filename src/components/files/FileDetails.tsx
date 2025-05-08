@@ -24,6 +24,7 @@ interface FileDetailsProps {
   onRemoveNoise: () => void;
   onRemoveMelody: () => void;
   onRemoveVocals: () => void;
+  onEnhanceAudio: () => void;
 }
 
 const FileDetails: React.FC<FileDetailsProps> = ({
@@ -34,7 +35,8 @@ const FileDetails: React.FC<FileDetailsProps> = ({
   onOpenAssistant,
   onRemoveNoise,
   onRemoveMelody,
-  onRemoveVocals
+  onRemoveVocals,
+  onEnhanceAudio
 }) => {
   const [activeTab, setActiveTab] = useState<string>("audio");
   const [chatMessages, setChatMessages] = useState<Message[]>([]);
@@ -151,9 +153,15 @@ const FileDetails: React.FC<FileDetailsProps> = ({
           removedNoiseFileUrl: response.data.removed_noise_file_url,
           removedMelodyFileUrl: response.data.removed_melody_file_url,
           removedVocalsFileUrl: response.data.removed_vocals_file_url,
+          enhancedAudioFileUrl: response.data.improved_audio_file_url,
+          removed_noise_file_url: response.data.removed_noise_file_url,
+          removed_melody_file_url: response.data.removed_melody_file_url,
+          removed_vocals_file_url: response.data.removed_vocals_file_url,
+          enhanced_audio_file_url: response.data.improved_audio_file_url,
           fileRemoveNoiseStatus: response.data.removed_noise_file_status,
           fileRemoveMelodyStatus: response.data.removed_melody_file_status,
           fileRemoveVocalStatus: response.data.removed_vocal_file_status,
+          fileImproveAudioStatus: response.data.improved_audio_file_status || 'not started',
           fileTranscriptionStatus: response.data.transcription_status || 'not started'
         };
         
@@ -406,6 +414,7 @@ const FileDetails: React.FC<FileDetailsProps> = ({
         onRemoveNoise={onRemoveNoise}
         onRemoveMelody={onRemoveMelody}
         onRemoveVocals={onRemoveVocals}
+        onEnhanceAudio={onEnhanceAudio}
       />
       
       {errorLoadingDetails && (
@@ -445,6 +454,7 @@ const FileDetails: React.FC<FileDetailsProps> = ({
               onRemoveMelody={onRemoveMelody}
               onRemoveVocals={onRemoveVocals}
               userPlan={userPlan}
+              onEnhanceAudio={onEnhanceAudio}
             />
           </div>
         )}

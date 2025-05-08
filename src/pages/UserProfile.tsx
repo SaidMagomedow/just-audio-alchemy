@@ -41,9 +41,9 @@ const UserProfile = () => {
   
   // Fallback data if API call fails
   const userData = {
-    name: user?.name || "Алексей Иванов",
+    name: user?.name || "Имя пользователя",
     email: user?.email || "alexey@example.com",
-    avatarUrl: user?.photoURL || "https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=100&h=100&fit=crop",
+    avatarUrl: user?.photoURL,
   };
 
   return (
@@ -69,9 +69,6 @@ const UserProfile = () => {
                   </div>
                   <Sheet>
                     <SheetTrigger asChild>
-                      <Button variant="outline" size="icon">
-                        <Settings className="h-4 w-4" />
-                      </Button>
                     </SheetTrigger>
                     <SheetContent>
                       <SheetHeader>

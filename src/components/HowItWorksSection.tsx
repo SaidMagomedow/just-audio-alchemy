@@ -21,7 +21,7 @@ const steps = [
   {
     step: 'Шаг 4',
     title: 'Публикуйте и делитесь',
-    description: 'Экспортируйте в нужном формате или делитесь напрямую на популярных платформах.'
+    description: 'Экспортируйте вашу очищенную аудио дорожку'
   }
 ];
 
@@ -39,12 +39,6 @@ const HowItWorksSection = () => {
               <p className="text-gray-600">{item.description}</p>
             </div>
           ))}
-        </div>
-        
-        <div className="mt-16 text-center">
-          <Button className="px-8 py-6 text-lg bg-black hover:bg-gray-800 text-white">
-            Попробовать бесплатно
-          </Button>
         </div>
       </div>
     </section>

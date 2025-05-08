@@ -9,6 +9,8 @@ import Auth from "./pages/Auth";
 import MyFiles from "./pages/MyFiles";
 import NotFound from "./pages/NotFound";
 import UserProfile from "./pages/UserProfile";
+import Agreement from "./pages/Agreement";
+import Privacy from "./pages/Privacy";
 
 const queryClient = new QueryClient();
 
@@ -24,6 +26,8 @@ const App = () => (
             <Route path="/auth" element={<Auth />} />
             <Route path="/my-files" element={<MyFiles />} />
             <Route path="/profile" element={<UserProfile />} />
+            <Route path="/agreement" element={<Agreement />} />
+            <Route path="/privacy" element={<Privacy />} />
             <Route path="*" element={<NotFound />} />
           </Routes>
         </BrowserRouter>

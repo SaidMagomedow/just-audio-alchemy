@@ -16,7 +16,7 @@ const CtaSection = () => {
           </p>
           
           <div className="flex flex-col sm:flex-row justify-center gap-4">
-            <Button className="px-8 py-6 text-lg bg-accent-orange hover:bg-orange-600 text-white">
+            <Button onClick={() => window.location.href = '#pricing'} className="px-8 py-6 text-lg bg-accent-orange hover:bg-orange-600 text-white">
               Начать бесплатно
             </Button>
             
