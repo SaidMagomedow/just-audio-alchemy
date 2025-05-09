@@ -188,12 +188,12 @@ const Auth = () => {
               <span>{isLoading ? "Входим..." : "Войти через Google"}</span>
             </Button>
             
-            <Button className="w-full justify-start gap-2 bg-[#26A5E4] hover:bg-[#0088cc]" onClick={() => console.log('Telegram auth')}>
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
-                <path d="M12 0C5.373 0 0 5.373 0 12s5.373 12 12 12 12-5.373 12-12S18.627 0 12 0zm5.562 8.248l-1.97 9.269c-.145.658-.537.818-1.084.51l-3-2.21-1.447 1.394c-.16.16-.295.295-.605.295l.213-3.054 5.56-5.022c.242-.213-.054-.334-.373-.121L8.48 13.037l-2.95-.924c-.642-.203-.654-.642.135-.954l11.514-4.435c.536-.196 1.006.121.833.524z" />
-              </svg>
-              <span>Войти через Telegram</span>
-            </Button>
+            {/*<Button className="w-full justify-start gap-2 bg-[#26A5E4] hover:bg-[#0088cc]" onClick={() => console.log('Telegram auth')}>*/}
+            {/*  <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">*/}
+            {/*    <path d="M12 0C5.373 0 0 5.373 0 12s5.373 12 12 12 12-5.373 12-12S18.627 0 12 0zm5.562 8.248l-1.97 9.269c-.145.658-.537.818-1.084.51l-3-2.21-1.447 1.394c-.16.16-.295.295-.605.295l.213-3.054 5.56-5.022c.242-.213-.054-.334-.373-.121L8.48 13.037l-2.95-.924c-.642-.203-.654-.642.135-.954l11.514-4.435c.536-.196 1.006.121.833.524z" />*/}
+            {/*  </svg>*/}
+            {/*  <span>Войти через Telegram</span>*/}
+            {/*</Button>*/}
           </TabsContent>
           
           <TabsContent value="email">

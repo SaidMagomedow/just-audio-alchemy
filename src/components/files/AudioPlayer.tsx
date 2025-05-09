@@ -32,6 +32,7 @@ import { toast } from 'sonner';
 import { getAuthToken } from '@/lib/auth';
 import { UserProductPlan } from '@/types/userPlan';
 import UpgradePlanModal from '../modals/UpgradePlanModal';
+import EnhanceAudioButton from './EnhanceAudioButton';
 
 interface AudioPlayerProps {
   file: TranscribedFile;
@@ -490,7 +491,7 @@ const AudioPlayer: React.FC<AudioPlayerProps> = ({
   const handleRemoveMelody = handleRealRemoveMelody;
   const handleRemoveVocals = handleRealRemoveVocals;
   
-  const handleRealEnhanceAudio = async () => {
+  const handleRealEnhanceAudio = async (presetId: string = 'smart_enhancement') => {
     // Проверяем права подписки (можно удалить при релизе)
     if (!canEnhanceAudio) {
       setFeatureToUpgrade('Улучшение звука');
@@ -508,8 +509,8 @@ const AudioPlayer: React.FC<AudioPlayerProps> = ({
       // Автоматически переключаемся на вкладку улучшенного звука
       handleSwitchAudio('improved');
       
-      await api.post(`/audio/convert/file/enhance-audio/${file.id}`);
-      console.log('API запрос выполнен успешно');
+      await api.post(`/audio/convert/file/enhance-audio/${file.id}?enhance_preset=${presetId}`);
+      console.log('API запрос выполнен успешно с пресетом:', presetId);
       
       // После успешного API запроса обновляем данные файла
       onEnhanceAudio(); 
@@ -929,53 +930,13 @@ const AudioPlayer: React.FC<AudioPlayerProps> = ({
             <TooltipProvider>
               {/* First row - Enhanced Audio (Featured) and Remove Noise */}
               <div className="flex gap-3">
-                {/* Enhanced Audio Button */}
-                <div className="flex flex-col h-[75px] flex-1">
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <Button 
-                        onClick={handleEnhanceAudio}
-                        variant="outline" 
-                        className="flex items-center gap-1.5 h-10 py-1 w-full justify-start relative overflow-hidden group"
-                        disabled={isProcessing || 
-                                 (improvedUrl && improvedUrl !== '') || 
-                                 improveStatus === 'processing'}
-                        style={{
-                          background: "linear-gradient(to right, rgba(139, 92, 246, 0.2), rgba(124, 58, 237, 0.25))",
-                          borderColor: "rgba(139, 92, 246, 0.4)"
-                        }}
-                      >
-                        {!canEnhanceAudio && <Lock className="h-3.5 w-3.5 mr-1 relative z-10 text-purple-600" />}
-                        <Sparkles className="h-4 w-4 text-purple-600 relative z-10" />
-                        <span className="relative z-10 font-medium text-sm text-purple-800">Улучшить звук AI</span>
-                      </Button>
-                    </TooltipTrigger>
-                    <TooltipContent>
-                      <p>Улучшить качество аудио с помощью AI</p>
-                      {!canEnhanceAudio && <p className="text-xs text-red-500 mt-1">Требуется улучшение подписки</p>}
-                    </TooltipContent>
-                  </Tooltip>
-                  <div className="h-6 flex justify-center items-center mt-1">
-                  {((improvedUrl && improvedUrl !== '') || 
-                    improveStatus === 'completed') ? (
-                    <span className="text-xs bg-green-50 text-green-600 px-2 py-0.5 rounded-md font-medium flex items-center gap-1">
-                      <CheckCircle className="h-3 w-3" />
-                      Готово
-                    </span>
-                  ) : improveStatus === 'processing' ? (
-                    <span className="text-xs bg-blue-50 text-blue-600 px-2 py-0.5 rounded-md font-medium flex items-center gap-1">
-                      <Loader2 className="h-3 w-3 animate-spin" />
-                      Обработка...
-                    </span>
-                  ) : improveStatus === 'failed' ? (
-                    <span className="text-xs bg-red-50 text-red-600 px-2 py-0.5 rounded-md font-medium flex items-center gap-1">
-                      Ошибка
-                    </span>
-                  ) : (
-                    <span className="h-5"></span>
-                  )}
-                  </div>
-                </div>
+                {/* Enhanced Audio Button - заменен на новый компонент */}
+                <EnhanceAudioButton 
+                  onEnhance={handleEnhanceAudio}
+                  disabled={isProcessing}
+                  status={improveStatus}
+                  hasImprovedAudio={!!(improvedUrl && improvedUrl !== '')}
+                />
                 
                 {/* Remove Noise Button */}
                 <div className="flex flex-col h-[75px] flex-1">
