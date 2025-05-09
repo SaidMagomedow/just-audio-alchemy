@@ -55,6 +55,9 @@ const formatTime = (date: Date) => {
   });
 };
 
+// Key for localStorage
+const SELECTED_MODEL_KEY = 'selectedGptModel';
+
 const ChatInterface: React.FC<ChatInterfaceProps> = ({ 
   messages, 
   onSendMessage,
@@ -70,13 +73,28 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const [isUserScrolling, setIsUserScrolling] = useState(false);
-  // Состояние для выбранной модели GPT
-  const [selectedModel, setSelectedModel] = useState<GptModel>('high-speed');
+  
+  // Инициализация с сохраненным значением из localStorage или 'high-speed' по умолчанию
+  const [selectedModel, setSelectedModel] = useState<GptModel>(() => {
+    if (typeof window !== 'undefined') {
+      const savedModel = localStorage.getItem(SELECTED_MODEL_KEY);
+      return (savedModel as GptModel) || 'high-speed';
+    }
+    return 'high-speed';
+  });
+  
   // Модальное окно для улучшения подписки
   const [showUpgradeModal, setShowUpgradeModal] = useState(false);
   
   // Проверка доступности выбора модели GPT
   const canSelectGptModel = !!userPlan?.is_can_select_gpt_model;
+
+  // Сохранение выбранной модели в localStorage при изменении
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      localStorage.setItem(SELECTED_MODEL_KEY, selectedModel);
+    }
+  }, [selectedModel]);
 
   // Получение иконки для текущей модели
   const getModelIcon = () => {
