@@ -109,6 +109,35 @@ const Auth = () => {
     }
   };
   
+  const handlePaste = (e: React.ClipboardEvent) => {
+    e.preventDefault();
+    const pastedData = e.clipboardData.getData('text').trim();
+    
+    // Если вставляемые данные содержат цифры
+    if (pastedData && /^\d+$/.test(pastedData)) {
+      // Берем только первые 4 символа или дополняем нулями если меньше
+      const digits = pastedData.slice(0, 4).padEnd(4, '');
+      
+      const newCode = [...verificationCode];
+      
+      // Распределяем по инпутам
+      for (let i = 0; i < Math.min(4, digits.length); i++) {
+        newCode[i] = digits[i];
+      }
+      
+      setVerificationCode(newCode);
+      
+      // Фокус на последнем заполненном поле или на последнем поле
+      const lastIndex = Math.min(3, digits.length - 1);
+      if (lastIndex >= 0) {
+        const lastInput = document.getElementById(`code-${lastIndex}`);
+        if (lastInput) {
+          lastInput.focus();
+        }
+      }
+    }
+  };
+  
   const verifyCode = async () => {
     const code = verificationCode.join('');
     
@@ -260,6 +289,7 @@ const Auth = () => {
                       maxLength={1}
                       value={digit}
                       onChange={(e) => handleCodeChange(index, e.target.value)}
+                      onPaste={index === 0 ? handlePaste : undefined}
                     />
                   ))}
                 </div>
