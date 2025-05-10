@@ -16,11 +16,11 @@ const CtaSection = () => {
           </p>
           
           <div className="flex flex-col sm:flex-row justify-center gap-4">
-            <Button onClick={() => window.location.href = '#pricing'} className="px-8 py-6 text-lg bg-accent-orange hover:bg-orange-600 text-white">
+            <Button onClick={() => window.location.href = '#pricing'} className="px-8 py-6 text-lg hover:bg-orange-600 text-white">
               Начать бесплатно
             </Button>
             
-            <Button variant="outline" className="px-8 py-6 text-lg border-white text-white hover:bg-white/10">
+            <Button variant="outline" className="px-8 py-6 text-lg border-white text-black" onClick={() => window.location.href = '#video-preview'}>
               Посмотреть демо
             </Button>
           </div>

@@ -27,6 +27,7 @@ interface EnhanceAudioButtonProps {
   className?: string;
   status?: 'idle' | 'processing' | 'completed' | 'failed' | 'not started';
   hasImprovedAudio?: boolean;
+  localProcessing?: boolean;
 }
 
 // Список доступных пресетов
@@ -73,6 +74,7 @@ const EnhanceAudioButton: React.FC<EnhanceAudioButtonProps> = ({
   className = "",
   status = 'idle',
   hasImprovedAudio = false,
+  localProcessing = false,
 }) => {
   const [open, setOpen] = useState(false);
   const [selectedPreset, setSelectedPreset] = useState<AudioEnhancementPreset>(PRESETS[0]);
@@ -87,7 +89,7 @@ const EnhanceAudioButton: React.FC<EnhanceAudioButtonProps> = ({
   };
 
   // Если статус completed или есть улучшенное аудио, кнопка должна быть отключена
-  const isButtonDisabled = disabled || status === 'processing' || hasImprovedAudio;
+  const isButtonDisabled = disabled || status === 'processing' || hasImprovedAudio || localProcessing;
 
   return (
     <div className={`flex flex-col h-[75px] flex-1 ${className}`}>
@@ -156,15 +158,15 @@ const EnhanceAudioButton: React.FC<EnhanceAudioButtonProps> = ({
         </PopoverContent>
       </Popover>
       <div className="h-6 flex justify-center items-center mt-1">
-        {(hasImprovedAudio || status === 'completed') ? (
-          <span className="text-xs bg-green-50 text-green-600 px-2 py-0.5 rounded-md font-medium flex items-center gap-1">
-            <CheckCircle className="h-3 w-3" />
-            Готово
-          </span>
-        ) : status === 'processing' ? (
+        {(localProcessing || status === 'processing') ? (
           <span className="text-xs bg-blue-50 text-blue-600 px-2 py-0.5 rounded-md font-medium flex items-center gap-1">
             <Loader2 className="h-3 w-3 animate-spin" />
             Обработка...
+          </span>
+        ) : (hasImprovedAudio || status === 'completed') ? (
+          <span className="text-xs bg-green-50 text-green-600 px-2 py-0.5 rounded-md font-medium flex items-center gap-1">
+            <CheckCircle className="h-3 w-3" />
+            Готово
           </span>
         ) : status === 'failed' ? (
           <span className="text-xs bg-red-50 text-red-600 px-2 py-0.5 rounded-md font-medium flex items-center gap-1">

@@ -183,77 +183,6 @@ const MyFiles: React.FC = () => {
     toast.success(`Открыт GPT ассистент для файла "${selectedFile?.name}"`);
   };
 
-  // The fetchFileDetails utility function to get and update file details
-  const fetchFileDetails = async (fileId: string) => {
-    if (!fileId) return;
-    
-    try {
-      console.log(`Fetching updated details for file ${fileId}`);
-      const response = await api.get(`/user-files/${fileId}/detail`);
-      
-      if (response.data) {
-        // Transform API response to our format
-        const fileImproveAudioStatus = mapProcessingStatus(response.data.improved_audio_file_status);
-        const fileRemoveNoiseStatus = mapProcessingStatus(response.data.removed_noise_file_status);
-        const fileRemoveMelodyStatus = mapProcessingStatus(response.data.removed_melody_file_status); 
-        const fileRemoveVocalStatus = mapProcessingStatus(response.data.removed_vocal_file_status);
-        const fileTranscriptionStatus = mapProcessingStatus(response.data.transcription_status);
-        
-        console.log('Updated file statuses:', {
-          noise: fileRemoveNoiseStatus,
-          melody: fileRemoveMelodyStatus,
-          vocals: fileRemoveVocalStatus,
-          improve: fileImproveAudioStatus
-        });
-        
-        const updatedFile: TranscribedFile = {
-          id: response.data.id.toString(),
-          name: response.data.display_name,
-          date: new Date(response.data.created_at),
-          duration: formatDuration(response.data.duration || 0),
-          audioUrl: response.data.file_url,
-          status: mapApiStatus(response.data.status),
-          transcription: response.data.transcription,
-          transcription_text: response.data.transcription_text,
-          transcription_vtt: response.data.transcription_vtt,
-          transcription_srt: response.data.transcription_srt,
-          fileSize: response.data.file_size,
-          mimeType: response.data.mime_type,
-          removedNoiseFileUrl: response.data.removed_noise_file_url,
-          removedMelodyFileUrl: response.data.removed_melody_file_url,
-          removedVocalsFileUrl: response.data.removed_vocals_file_url,
-          enhancedAudioFileUrl: response.data.improved_audio_file_url,
-          removed_noise_file_url: response.data.removed_noise_file_url,
-          removed_melody_file_url: response.data.removed_melody_file_url,
-          removed_vocals_file_url: response.data.removed_vocals_file_url,
-          enhanced_audio_file_url: response.data.improved_audio_file_url,
-          fileRemoveNoiseStatus,
-          fileRemoveMelodyStatus,
-          fileRemoveVocalStatus,
-          fileImproveAudioStatus,
-          fileTranscriptionStatus
-        };
-        
-        // Update selectedFile
-        setSelectedFile(updatedFile);
-        
-        // Update file in the list
-        setFiles(prevFiles => 
-          prevFiles.map(file => 
-            file.id === fileId ? updatedFile : file
-          )
-        );
-        
-        return updatedFile;
-      }
-    } catch (error) {
-      console.error('Error fetching file details:', error);
-      toast.error('Ошибка при обновлении данных файла');
-    }
-    
-    return null;
-  };
-
   const handleRemoveNoise = async () => {
     if (!selectedFile) return;
     
@@ -274,8 +203,6 @@ const MyFiles: React.FC = () => {
       )
     );
     
-    // Запускаем получение обновленных данных
-    await fetchFileDetails(selectedFile.id);
   };
 
   const handleRemoveMelody = async () => {
@@ -297,9 +224,7 @@ const MyFiles: React.FC = () => {
         file.id === selectedFile.id ? updatedFile : file
       )
     );
-    
-    // Запускаем получение обновленных данных
-    await fetchFileDetails(selectedFile.id);
+
   };
 
   const handleRemoveVocals = async () => {
@@ -321,9 +246,7 @@ const MyFiles: React.FC = () => {
         file.id === selectedFile.id ? updatedFile : file
       )
     );
-    
-    // Запускаем получение обновленных данных
-    await fetchFileDetails(selectedFile.id);
+
   };
 
   const handleEnhanceAudio = async () => {
@@ -345,30 +268,6 @@ const MyFiles: React.FC = () => {
         file.id === selectedFile.id ? updatedFile : file
       )
     );
-    
-    // Запускаем получение обновленных данных
-    await fetchFileDetails(selectedFile.id);
-    
-    // Проверяем статус каждые 3 секунды
-    const checkStatusInterval = setInterval(async () => {
-      try {
-        const updatedFile = await fetchFileDetails(selectedFile.id);
-        
-        // Если статус уже не "processing", останавливаем проверку
-        if (updatedFile && updatedFile.fileImproveAudioStatus !== 'processing') {
-          console.log('Остановка проверки статуса, текущий статус:', updatedFile.fileImproveAudioStatus);
-          clearInterval(checkStatusInterval);
-        }
-      } catch (error) {
-        console.error('Ошибка при обновлении данных файла:', error);
-        clearInterval(checkStatusInterval);
-      }
-    }, 3000);
-    
-    // Для безопасности останавливаем интервал через 5 минут
-    setTimeout(() => {
-      clearInterval(checkStatusInterval);
-    }, 5 * 60 * 1000);
   };
 
   // Early return if not authenticated to avoid API calls

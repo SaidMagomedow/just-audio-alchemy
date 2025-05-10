@@ -78,6 +78,12 @@ const AudioPlayer: React.FC<AudioPlayerProps> = ({
   const [audioError, setAudioError] = useState<string | null>(null);
   const [audioLoaded, setAudioLoaded] = useState(false);
   
+  // New local processing states
+  const [noiseProcessing, setNoiseProcessing] = useState(false);
+  const [melodyProcessing, setMelodyProcessing] = useState(false);
+  const [vocalsProcessing, setVocalsProcessing] = useState(false);
+  const [enhanceProcessing, setEnhanceProcessing] = useState(false);
+  
   // Модальное окно для предложения улучшить подписку
   const [showUpgradeModal, setShowUpgradeModal] = useState(false);
   const [featureToUpgrade, setFeatureToUpgrade] = useState('');
@@ -88,11 +94,16 @@ const AudioPlayer: React.FC<AudioPlayerProps> = ({
   const canRemoveVocal = !!userPlan?.is_can_remove_vocal;
   const canEnhanceAudio = !!userPlan?.is_can_enhance_audio;
   
+  // Type guard for processing status
+  function isProcessingStatus(status: string): status is 'processing' {
+    return status === 'processing';
+  }
+
   // Используем статусы непосредственно из props вместо дублирования в локальный state
-  const noiseStatus = file.fileRemoveNoiseStatus ?? 'idle';
-  const melodyStatus = file.fileRemoveMelodyStatus ?? 'idle';
-  const vocalsStatus = file.fileRemoveVocalStatus ?? 'idle';
-  const improveStatus = file.fileImproveAudioStatus ?? 'idle';
+  const noiseStatus = file.fileRemoveNoiseStatus ?? 'not started';
+  const melodyStatus = file.fileRemoveMelodyStatus ?? 'not started';
+  const vocalsStatus = file.fileRemoveVocalStatus ?? 'not started';
+  const improveStatus = file.fileImproveAudioStatus ?? 'not started';
   
   // Определяем URLs для обработанных файлов
   const noiseRemovedUrl = file.removedNoiseFileUrl || file.removed_noise_file_url;
@@ -107,6 +118,41 @@ const AudioPlayer: React.FC<AudioPlayerProps> = ({
       handleSwitchAudio('improved');
     }
   }, [improveStatus, activeAudio]);
+  
+  // Initialize processing states from props when file changes
+  useEffect(() => {
+    // Сначала проверяем, есть ли сохраненные состояния в localStorage
+    if (file.id) {
+      const savedStates = localStorage.getItem(`processingStates_${file.id}`);
+      if (savedStates) {
+        const parsedStates = JSON.parse(savedStates);
+        setNoiseProcessing(parsedStates.noiseProcessing);
+        setMelodyProcessing(parsedStates.melodyProcessing);
+        setVocalsProcessing(parsedStates.vocalsProcessing);
+        setEnhanceProcessing(parsedStates.enhanceProcessing);
+      } else {
+        // Если сохраненных состояний нет, инициализируем из пропсов
+        setNoiseProcessing(file.fileRemoveNoiseStatus === 'processing');
+        setMelodyProcessing(file.fileRemoveMelodyStatus === 'processing');
+        setVocalsProcessing(file.fileRemoveVocalStatus === 'processing');
+        setEnhanceProcessing(file.fileImproveAudioStatus === 'processing');
+      }
+    }
+  }, [file.id]);
+  
+  // Сохраняем состояние обработки при изменении
+  useEffect(() => {
+    // Сохраняем статусы обработки в localStorage для текущего файла
+    if (file.id) {
+      const processingStates = {
+        noiseProcessing,
+        melodyProcessing,
+        vocalsProcessing,
+        enhanceProcessing
+      };
+      localStorage.setItem(`processingStates_${file.id}`, JSON.stringify(processingStates));
+    }
+  }, [file.id, noiseProcessing, melodyProcessing, vocalsProcessing, enhanceProcessing]);
   
   // Audio element references
   const getCurrentAudioRef = () => {
@@ -417,17 +463,12 @@ const AudioPlayer: React.FC<AudioPlayerProps> = ({
     if (!file.id) return;
     
     try {
-      // Устанавливаем локальный стейт через callback функции
-      setIsProcessing(true);
-      setProcessingType('Удаление шума');
-      
+      setNoiseProcessing(true);
       await api.post(`/audio/convert/file/remove-noise/${file.id}`);
       onRemoveNoise(); // Обновить данные файла
     } catch (error) {
       console.error('Error removing noise:', error);
       toast.error('Ошибка при удалении шума');
-    } finally {
-      setIsProcessing(false);
     }
   };
   
@@ -442,17 +483,12 @@ const AudioPlayer: React.FC<AudioPlayerProps> = ({
     if (!file.id) return;
     
     try {
-      // Устанавливаем локальный стейт через callback функции
-      setIsProcessing(true);
-      setProcessingType('Удаление мелодии');
-      
+      setMelodyProcessing(true);
       await api.post(`/audio/convert/file/remove-melody/${file.id}`);
       onRemoveMelody(); // Обновить данные файла
     } catch (error) {
       console.error('Error removing melody:', error);
       toast.error('Ошибка при удалении мелодии');
-    } finally {
-      setIsProcessing(false);
     }
   };
   
@@ -467,17 +503,12 @@ const AudioPlayer: React.FC<AudioPlayerProps> = ({
     if (!file.id) return;
     
     try {
-      // Устанавливаем локальный стейт через callback функции
-      setIsProcessing(true);
-      setProcessingType('Удаление вокала');
-      
+      setVocalsProcessing(true);
       await api.post(`/audio/convert/file/remove-vocals/${file.id}`);
       onRemoveVocals(); // Обновить данные файла
     } catch (error) {
       console.error('Error removing vocals:', error);
       toast.error('Ошибка при удалении вокала');
-    } finally {
-      setIsProcessing(false);
     }
   };
   
@@ -502,9 +533,7 @@ const AudioPlayer: React.FC<AudioPlayerProps> = ({
     if (!file.id) return;
     
     try {
-      // Устанавливаем локальный стейт через callback функции
-      setIsProcessing(true);
-      setProcessingType('Улучшение звука');
+      setEnhanceProcessing(true);
       
       // Автоматически переключаемся на вкладку улучшенного звука
       handleSwitchAudio('improved');
@@ -517,23 +546,30 @@ const AudioPlayer: React.FC<AudioPlayerProps> = ({
     } catch (error) {
       console.error('Error enhancing audio:', error);
       toast.error('Ошибка при улучшении звука');
-    } finally {
-      setIsProcessing(false);
     }
+  };
+
+  const handleProgressBarClick = async (e: React.MouseEvent<HTMLDivElement>) => {
+    // 1) Убедиться, что аудио загружено (если ещё нет — подгрузить метаданные)
+    if (!audioLoaded) {
+      const ok = await loadAudioWithAuth();
+      if (!ok) return;
+    }
+    // 2) Вычислить позицию клика относительно ширины бара
+    const barRect = e.currentTarget.getBoundingClientRect();
+    const clickX = e.clientX - barRect.left;
+    const clickRatio = clickX / barRect.width;
+    const newTime = clickRatio * duration;
+    // 3) Перемотать текущий аудио-элемент
+    const audioEl = getCurrentAudioRef().current;
+    if (audioEl) {
+      audioEl.currentTime = newTime;
+    }
+    // 4) Обновить состояние, чтобы ползунок и время сразу отрисовались
+    setCurrentTime(newTime);
   };
   
   const handleEnhanceAudio = handleRealEnhanceAudio;
-  
-  const handleOpenAssistant = () => {
-    setIsProcessing(true);
-    setProcessingType('Загрузка ассистента');
-    
-    // Мгновенный вызов
-    setTimeout(() => {
-      setIsProcessing(false);
-      onOpenAssistant();
-    }, 500);
-  };
   
   const handleSwitchAudio = (value: string) => {
     pauseAllAudio();
@@ -623,51 +659,27 @@ const AudioPlayer: React.FC<AudioPlayerProps> = ({
 
   return (
     <div className="flex-1 flex flex-col p-6">
-      {/* Audio elements (hidden) - no src initially */}
+      {/* Audio elements (hidden) - always rendered */}
       <audio 
         ref={audioRef}
-        preload="none"
+        preload="metadata"
         className="hidden"
       />
-      
-      {((noiseRemovedUrl && noiseRemovedUrl !== '') || 
-        (file.removed_noise_file_url && file.removed_noise_file_url !== '') || 
-        noiseStatus === 'processing' || noiseStatus === 'failed' ||
-        (melodyRemovedUrl && melodyRemovedUrl !== '') || 
-        (file.removed_melody_file_url && file.removed_melody_file_url !== '') ||
-        melodyStatus === 'processing' || melodyStatus === 'failed' ||
-        (vocalsRemovedUrl && vocalsRemovedUrl !== '') || 
-        (file.removed_vocals_file_url && file.removed_vocals_file_url !== '') ||
-        vocalsStatus === 'processing' || vocalsStatus === 'failed' ||
-        (improvedUrl && improvedUrl !== '') || 
-        (file.enhanced_audio_file_url && file.enhanced_audio_file_url !== '') ||
-        improveStatus === 'processing' || improveStatus === 'failed') && (
-        <audio
-          ref={enhancedAudioRef}
-          preload="none"
-          className="hidden"
-        />
-      )}
-      
-      {((melodyRemovedUrl && melodyRemovedUrl !== '') || 
-        (file.removed_melody_file_url && file.removed_melody_file_url !== '') || 
-        melodyStatus === 'processing' || melodyStatus === 'failed') && (
-        <audio
-          ref={vocalsAudioRef}
-          preload="none"
-          className="hidden"
-        />
-      )}
-      
-      {((vocalsRemovedUrl && vocalsRemovedUrl !== '') || 
-        (file.removed_vocals_file_url && file.removed_vocals_file_url !== '') || 
-        vocalsStatus === 'processing' || vocalsStatus === 'failed') && (
-        <audio
-          ref={instrumentalAudioRef}
-          preload="none"
-          className="hidden"
-        />
-      )}
+      <audio
+        ref={enhancedAudioRef}
+        preload="metadata"
+        className="hidden"
+      />
+      <audio
+        ref={vocalsAudioRef}
+        preload="metadata"
+        className="hidden"
+      />
+      <audio
+        ref={instrumentalAudioRef}
+        preload="metadata"
+        className="hidden"
+      />
       
       {/* Main player UI */}
       <div className="mb-8 w-full max-w-4xl mx-auto">
@@ -675,26 +687,26 @@ const AudioPlayer: React.FC<AudioPlayerProps> = ({
           {/* Show tabs only if we have any processed files */}
           {((noiseRemovedUrl && noiseRemovedUrl !== '') || 
             (file.removed_noise_file_url && file.removed_noise_file_url !== '') ||
-            noiseStatus === 'processing' || noiseStatus === 'failed' ||
+            (noiseProcessing || isProcessingStatus(noiseStatus)) || noiseStatus === 'failed' ||
             (melodyRemovedUrl && melodyRemovedUrl !== '') || 
             (file.removed_melody_file_url && file.removed_melody_file_url !== '') ||
-            melodyStatus === 'processing' || melodyStatus === 'failed' ||
+            (melodyProcessing || isProcessingStatus(melodyStatus)) || melodyStatus === 'failed' ||
             (vocalsRemovedUrl && vocalsRemovedUrl !== '') || 
             (file.removed_vocals_file_url && file.removed_vocals_file_url !== '') ||
-            vocalsStatus === 'processing' || vocalsStatus === 'failed' ||
+            (vocalsProcessing || isProcessingStatus(vocalsStatus)) || vocalsStatus === 'failed' ||
             (improvedUrl && improvedUrl !== '') || 
             (file.enhanced_audio_file_url && file.enhanced_audio_file_url !== '') ||
-            improveStatus === 'processing' || improveStatus === 'failed') && (
+            (enhanceProcessing || isProcessingStatus(improveStatus)) || improveStatus === 'failed') && (
             <div className="mb-4">
               <Tabs value={activeAudio} onValueChange={handleSwitchAudio} className="w-full">
                 <TabsList className="grid w-full" style={{ gridTemplateColumns: `repeat(${getAvailableTracks().length}, 1fr)` }}>
                   <TabsTrigger value="original">Исходный файл</TabsTrigger>
                   {((noiseRemovedUrl && noiseRemovedUrl !== '') || 
                     (file.removed_noise_file_url && file.removed_noise_file_url !== '') || 
-                    noiseStatus === 'processing' || noiseStatus === 'failed') && (
+                    (noiseProcessing || isProcessingStatus(noiseStatus)) || noiseStatus === 'failed') && (
                     <TabsTrigger value="enhanced">
                       Файл без шума
-                      {noiseStatus === 'processing' && (
+                      {(noiseProcessing || isProcessingStatus(noiseStatus)) && (
                         <div className="ml-1 h-3 w-3 rounded-full bg-blue-500 animate-pulse"></div>
                       )}
                       {noiseStatus === 'failed' && (
@@ -704,10 +716,10 @@ const AudioPlayer: React.FC<AudioPlayerProps> = ({
                   )}
                   {((melodyRemovedUrl && melodyRemovedUrl !== '') || 
                     (file.removed_melody_file_url && file.removed_melody_file_url !== '') || 
-                    melodyStatus === 'processing' || melodyStatus === 'failed') && (
+                    (melodyProcessing || isProcessingStatus(melodyStatus)) || melodyStatus === 'failed') && (
                     <TabsTrigger value="vocals">
                       Только вокал
-                      {melodyStatus === 'processing' && (
+                      {(melodyProcessing || isProcessingStatus(melodyStatus)) && (
                         <div className="ml-1 h-3 w-3 rounded-full bg-blue-500 animate-pulse"></div>
                       )}
                       {melodyStatus === 'failed' && (
@@ -717,10 +729,10 @@ const AudioPlayer: React.FC<AudioPlayerProps> = ({
                   )}
                   {((vocalsRemovedUrl && vocalsRemovedUrl !== '') || 
                     (file.removed_vocals_file_url && file.removed_vocals_file_url !== '') || 
-                    vocalsStatus === 'processing' || vocalsStatus === 'failed') && (
+                    (vocalsProcessing || isProcessingStatus(vocalsStatus)) || vocalsStatus === 'failed') && (
                     <TabsTrigger value="instrumental">
                       Инструментал
-                      {vocalsStatus === 'processing' && (
+                      {(vocalsProcessing || isProcessingStatus(vocalsStatus)) && (
                         <div className="ml-1 h-3 w-3 rounded-full bg-blue-500 animate-pulse"></div>
                       )}
                       {vocalsStatus === 'failed' && (
@@ -728,13 +740,11 @@ const AudioPlayer: React.FC<AudioPlayerProps> = ({
                       )}
                     </TabsTrigger>
                   )}
-                  {/* Принудительно показываем вкладку улучшенного звука, когда статус processing, 
-                     даже если файлы еще не доступны */}
-                  {(improveStatus === 'processing' || improveStatus === 'completed' || 
-                    improveStatus === 'failed' || (improvedUrl && improvedUrl !== '')) && (
+                  {((improvedUrl && improvedUrl !== '') || 
+                    (enhanceProcessing || isProcessingStatus(improveStatus)) || improveStatus === 'failed') && (
                     <TabsTrigger value="improved">
                       Улучшенный звук
-                      {improveStatus === 'processing' && (
+                      {(enhanceProcessing || isProcessingStatus(improveStatus)) && (
                         <div className="ml-1 h-3 w-3 rounded-full bg-blue-500 animate-pulse"></div>
                       )}
                       {improveStatus === 'failed' && (
@@ -761,10 +771,10 @@ const AudioPlayer: React.FC<AudioPlayerProps> = ({
               onClick={handleDownloadAudio}
               className="flex items-center gap-1"
               disabled={
-                (activeAudio === 'enhanced' && noiseStatus === 'failed') ||
-                (activeAudio === 'vocals' && melodyStatus === 'failed') ||
-                (activeAudio === 'instrumental' && vocalsStatus === 'failed') ||
-                (activeAudio === 'improved' && improveStatus === 'failed')
+                (activeAudio === 'enhanced' && (noiseProcessing || isProcessingStatus(noiseStatus))) ||
+                (activeAudio === 'vocals' && (melodyProcessing || isProcessingStatus(melodyStatus))) ||
+                (activeAudio === 'instrumental' && (vocalsProcessing || isProcessingStatus(vocalsStatus))) ||
+                (activeAudio === 'improved' && (enhanceProcessing || isProcessingStatus(improveStatus)))
               }
             >
               <Download className="h-4 w-4" />
@@ -773,9 +783,10 @@ const AudioPlayer: React.FC<AudioPlayerProps> = ({
           </div>
 
           {/* Display error message if processing failed */}
-          {((activeAudio === 'enhanced' && noiseStatus === 'failed') ||
-            (activeAudio === 'vocals' && melodyStatus === 'failed') ||
-            (activeAudio === 'instrumental' && vocalsStatus === 'failed')) && (
+          {((activeAudio === 'enhanced' && (noiseProcessing || isProcessingStatus(noiseStatus))) ||
+            (activeAudio === 'vocals' && (melodyProcessing || isProcessingStatus(melodyStatus))) ||
+            (activeAudio === 'instrumental' && (vocalsProcessing || isProcessingStatus(vocalsStatus))) ||
+            (activeAudio === 'improved' && (enhanceProcessing || isProcessingStatus(improveStatus)))) && (
             <div className="mb-4 p-3 bg-red-50 text-red-600 rounded-md text-sm">
               Обработка прошла с ошибкой. Попробуйте немного позднее.
             </div>
@@ -789,7 +800,7 @@ const AudioPlayer: React.FC<AudioPlayerProps> = ({
           )}
 
           {/* Waveform / Progress visualization */}
-          <div className="relative h-12 mb-2 bg-gray-100 rounded overflow-hidden">
+          <div className="relative h-12 mb-2 bg-gray-100 rounded overflow-hidden cursor-pointer" onClick={handleProgressBarClick}>
             <div
               className="absolute left-0 top-0 h-full bg-primary/20"
               style={{ width: `${(currentTime / duration) * 100}%` }}
@@ -895,28 +906,28 @@ const AudioPlayer: React.FC<AudioPlayerProps> = ({
                 </div>
               )}
               
-              {!isProcessing && noiseStatus === 'processing' && (
+              {!isProcessing && isProcessingStatus(noiseStatus) && (
                 <div className="flex items-center justify-center p-2 bg-blue-50 rounded-md">
                   <div className="h-4 w-4 rounded-full bg-blue-500 animate-pulse mr-2"></div>
                   <p className="text-sm text-primary">Удаление шума...</p>
                 </div>
               )}
               
-              {!isProcessing && melodyStatus === 'processing' && (
+              {!isProcessing && isProcessingStatus(melodyStatus) && (
                 <div className="flex items-center justify-center p-2 bg-blue-50 rounded-md">
                   <div className="h-4 w-4 rounded-full bg-blue-500 animate-pulse mr-2"></div>
                   <p className="text-sm text-primary">Удаление музыки...</p>
                 </div>
               )}
               
-              {!isProcessing && vocalsStatus === 'processing' && (
+              {!isProcessing && isProcessingStatus(vocalsStatus) && (
                 <div className="flex items-center justify-center p-2 bg-blue-50 rounded-md">
                   <div className="h-4 w-4 rounded-full bg-blue-500 animate-pulse mr-2"></div>
                   <p className="text-sm text-primary">Удаление вокала...</p>
                 </div>
               )}
               
-              {!isProcessing && improveStatus === 'processing' && (
+              {!isProcessing && isProcessingStatus(improveStatus) && (
                 <div className="flex items-center justify-center p-2 bg-blue-50 rounded-md">
                   <div className="h-4 w-4 rounded-full bg-blue-500 animate-pulse mr-2"></div>
                   <p className="text-sm text-primary">Улучшение звука с AI...</p>
@@ -936,6 +947,7 @@ const AudioPlayer: React.FC<AudioPlayerProps> = ({
                   disabled={isProcessing}
                   status={improveStatus}
                   hasImprovedAudio={!!(improvedUrl && improvedUrl !== '')}
+                  localProcessing={enhanceProcessing}
                 />
                 
                 {/* Remove Noise Button */}
@@ -949,7 +961,7 @@ const AudioPlayer: React.FC<AudioPlayerProps> = ({
                         disabled={isProcessing || 
                                  (noiseRemovedUrl && noiseRemovedUrl !== '') || 
                                  (file.removed_noise_file_url && file.removed_noise_file_url !== '') || 
-                                 noiseStatus === 'processing'}
+                                 (noiseProcessing || isProcessingStatus(noiseStatus))}
                       >
                         {!canRemoveNoise && <Lock className="h-3.5 w-3.5 mr-1" />}
                         <Volume2 className="h-4 w-4 text-primary" />
@@ -962,17 +974,17 @@ const AudioPlayer: React.FC<AudioPlayerProps> = ({
                     </TooltipContent>
                   </Tooltip>
                   <div className="h-6 flex justify-center items-center mt-1">
-                  {((noiseRemovedUrl && noiseRemovedUrl !== '') || 
-                    (file.removed_noise_file_url && file.removed_noise_file_url !== '') || 
-                    noiseStatus === 'completed') ? (
-                    <span className="text-xs bg-green-50 text-green-600 px-2 py-0.5 rounded-md font-medium flex items-center gap-1">
-                      <CheckCircle className="h-3 w-3" />
-                      Готово
-                    </span>
-                  ) : noiseStatus === 'processing' ? (
+                  {(noiseProcessing || isProcessingStatus(noiseStatus)) ? (
                     <span className="text-xs bg-blue-50 text-blue-600 px-2 py-0.5 rounded-md font-medium flex items-center gap-1">
                       <Loader2 className="h-3 w-3 animate-spin" />
                       Обработка...
+                    </span>
+                  ) : ((noiseRemovedUrl && noiseRemovedUrl !== '') || 
+                      (file.removed_noise_file_url && file.removed_noise_file_url !== '') || 
+                      noiseStatus === 'completed') ? (
+                    <span className="text-xs bg-green-50 text-green-600 px-2 py-0.5 rounded-md font-medium flex items-center gap-1">
+                      <CheckCircle className="h-3 w-3" />
+                      Готово
                     </span>
                   ) : noiseStatus === 'failed' ? (
                     <span className="text-xs bg-red-50 text-red-600 px-2 py-0.5 rounded-md font-medium flex items-center gap-1">
@@ -998,7 +1010,7 @@ const AudioPlayer: React.FC<AudioPlayerProps> = ({
                         disabled={isProcessing || 
                                  (melodyRemovedUrl && melodyRemovedUrl !== '') || 
                                  (file.removed_melody_file_url && file.removed_melody_file_url !== '') || 
-                                 melodyStatus === 'processing'}
+                                 (melodyProcessing || isProcessingStatus(melodyStatus))}
                       >
                         {!canRemoveMelody && <Lock className="h-3.5 w-3.5 mr-1" />}
                         <Music className="h-4 w-4 text-primary" />
@@ -1011,17 +1023,17 @@ const AudioPlayer: React.FC<AudioPlayerProps> = ({
                     </TooltipContent>
                   </Tooltip>
                   <div className="h-6 flex justify-center items-center mt-1">
-                  {((melodyRemovedUrl && melodyRemovedUrl !== '') || 
-                    (file.removed_melody_file_url && file.removed_melody_file_url !== '') || 
-                    melodyStatus === 'completed') ? (
-                    <span className="text-xs bg-green-50 text-green-600 px-2 py-0.5 rounded-md font-medium flex items-center gap-1">
-                      <CheckCircle className="h-3 w-3" />
-                      Готово
-                    </span>
-                  ) : melodyStatus === 'processing' ? (
+                  {(melodyProcessing || isProcessingStatus(melodyStatus)) ? (
                     <span className="text-xs bg-blue-50 text-blue-600 px-2 py-0.5 rounded-md font-medium flex items-center gap-1">
                       <Loader2 className="h-3 w-3 animate-spin" />
                       Обработка...
+                    </span>
+                  ) : ((melodyRemovedUrl && melodyRemovedUrl !== '') || 
+                      (file.removed_melody_file_url && file.removed_melody_file_url !== '') || 
+                      melodyStatus === 'completed') ? (
+                    <span className="text-xs bg-green-50 text-green-600 px-2 py-0.5 rounded-md font-medium flex items-center gap-1">
+                      <CheckCircle className="h-3 w-3" />
+                      Готово
                     </span>
                   ) : melodyStatus === 'failed' ? (
                     <span className="text-xs bg-red-50 text-red-600 px-2 py-0.5 rounded-md font-medium flex items-center gap-1">
@@ -1044,7 +1056,7 @@ const AudioPlayer: React.FC<AudioPlayerProps> = ({
                         disabled={isProcessing || 
                                  (vocalsRemovedUrl && vocalsRemovedUrl !== '') || 
                                  (file.removed_vocals_file_url && file.removed_vocals_file_url !== '') || 
-                                 vocalsStatus === 'processing'}
+                                 (vocalsProcessing || isProcessingStatus(vocalsStatus))}
                       >
                         {!canRemoveVocal && <Lock className="h-3.5 w-3.5 mr-1" />}
                         <MicOff className="h-4 w-4 text-primary" />
@@ -1057,17 +1069,17 @@ const AudioPlayer: React.FC<AudioPlayerProps> = ({
                     </TooltipContent>
                   </Tooltip>
                   <div className="h-6 flex justify-center items-center mt-1">
-                  {((vocalsRemovedUrl && vocalsRemovedUrl !== '') || 
-                    (file.removed_vocals_file_url && file.removed_vocals_file_url !== '') || 
-                    vocalsStatus === 'completed') ? (
-                    <span className="text-xs bg-green-50 text-green-600 px-2 py-0.5 rounded-md font-medium flex items-center gap-1">
-                      <CheckCircle className="h-3 w-3" />
-                      Готово
-                    </span>
-                  ) : vocalsStatus === 'processing' ? (
+                  {(vocalsProcessing || isProcessingStatus(vocalsStatus)) ? (
                     <span className="text-xs bg-blue-50 text-blue-600 px-2 py-0.5 rounded-md font-medium flex items-center gap-1">
                       <Loader2 className="h-3 w-3 animate-spin" />
                       Обработка...
+                    </span>
+                  ) : ((vocalsRemovedUrl && vocalsRemovedUrl !== '') || 
+                      (file.removed_vocals_file_url && file.removed_vocals_file_url !== '') || 
+                      vocalsStatus === 'completed') ? (
+                    <span className="text-xs bg-green-50 text-green-600 px-2 py-0.5 rounded-md font-medium flex items-center gap-1">
+                      <CheckCircle className="h-3 w-3" />
+                      Готово
                     </span>
                   ) : vocalsStatus === 'failed' ? (
                     <span className="text-xs bg-red-50 text-red-600 px-2 py-0.5 rounded-md font-medium flex items-center gap-1">
@@ -1105,27 +1117,27 @@ const AudioPlayer: React.FC<AudioPlayerProps> = ({
     // Show enhanced track if it's available or processing or failed
     if ((noiseRemovedUrl && noiseRemovedUrl !== '') || 
         (file.removed_noise_file_url && file.removed_noise_file_url !== '') || 
-        noiseStatus === 'processing' || noiseStatus === 'failed') {
+        (noiseProcessing || isProcessingStatus(noiseStatus)) || noiseStatus === 'failed' || noiseStatus === 'completed') {
       tracks.push({ id: 'enhanced', label: 'Файл без шума' });
     }
     
     // Show vocals track if it's available or processing or failed
     if ((melodyRemovedUrl && melodyRemovedUrl !== '') || 
         (file.removed_melody_file_url && file.removed_melody_file_url !== '') || 
-        melodyStatus === 'processing' || melodyStatus === 'failed') {
+        (melodyProcessing || isProcessingStatus(melodyStatus)) || melodyStatus === 'failed' || melodyStatus === 'completed') {
       tracks.push({ id: 'vocals', label: 'Только вокал' });
     }
     
     // Show instrumental track if it's available or processing or failed
     if ((vocalsRemovedUrl && vocalsRemovedUrl !== '') || 
         (file.removed_vocals_file_url && file.removed_vocals_file_url !== '') || 
-        vocalsStatus === 'processing' || vocalsStatus === 'failed') {
+        (vocalsProcessing || isProcessingStatus(vocalsStatus)) || vocalsStatus === 'failed' || vocalsStatus === 'completed') {
       tracks.push({ id: 'instrumental', label: 'Инструментал' });
     }
     
     // Show improved audio track if it's available or processing or failed
     if ((improvedUrl && improvedUrl !== '') || 
-        improveStatus === 'processing' || improveStatus === 'failed') {
+        (enhanceProcessing || isProcessingStatus(improveStatus)) || improveStatus === 'failed' || improveStatus === 'completed') {
       console.log('Добавляем вкладку улучшенного звука');
       tracks.push({ id: 'improved', label: 'Улучшенный звук' });
     }

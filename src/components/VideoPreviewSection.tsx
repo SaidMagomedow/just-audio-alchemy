@@ -5,7 +5,7 @@ import { Play } from 'lucide-react';
 const VideoPreviewSection = () => {
   return (
     <section className="py-20">
-      <div className="container">
+      <div className="container" id="video-preview">
         <div className="max-w-4xl mx-auto">
           <div className="relative aspect-video bg-gray-100 rounded-xl overflow-hidden flex items-center justify-center cursor-pointer group">
             <div className="absolute inset-0 bg-black/5 group-hover:bg-black/10 transition-colors"></div>
