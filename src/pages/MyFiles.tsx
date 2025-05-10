@@ -65,74 +65,74 @@ const MyFiles: React.FC = () => {
   }, [navigate]);
 
   // Загружаем файлы с API
-  useEffect(() => {
-    const fetchFiles = async () => {
-      try {
-        setLoading(true);
-        
-        const response = await api.get('/user-files/detail');
-        
-        if (response.data && response.data.items) {
-          // Преобразуем данные API в формат, подходящий для компонента
-          const transformedFiles: TranscribedFile[] = response.data.items.map((file: ApiFile) => {
-            console.log(`File ${file.id} improve audio status:`, file.improved_audio_file_status);
-            
-            // Преобразование статусов через вспомогательную функцию
-            const fileImproveAudioStatus = mapProcessingStatus(file.improved_audio_file_status);
-            const fileRemoveNoiseStatus = mapProcessingStatus(file.removed_noise_file_status);
-            const fileRemoveMelodyStatus = mapProcessingStatus(file.removed_melody_file_status);
-            const fileRemoveVocalStatus = mapProcessingStatus(file.removed_vocal_file_status); 
-            const fileTranscriptionStatus = mapProcessingStatus(file.transcription_status);
-            
-            console.log(`File ${file.id} mapped improve audio status:`, fileImproveAudioStatus);
-            
-            return {
-              id: file.id.toString(),
-              name: file.display_name,
-              date: new Date(file.created_at),
-              duration: formatDuration(file.duration || 0),
-              audioUrl: file.file_url,
-              status: mapApiStatus(file.status),
-              transcription: file.transcription,
-              transcription_text: file.transcription_text,
-              transcription_vtt: file.transcription_vtt,
-              transcription_srt: file.transcription_srt,
-              fileSize: file.file_size,
-              mimeType: file.mime_type,
-              removedNoiseFileUrl: file.removed_noise_file_url,
-              removedMelodyFileUrl: file.removed_melody_file_url,
-              removedVocalsFileUrl: file.removed_vocals_file_url,
-              enhancedAudioFileUrl: file.improved_audio_file_url,
-              removed_noise_file_url: file.removed_noise_file_url,
-              removed_melody_file_url: file.removed_melody_file_url,
-              removed_vocals_file_url: file.removed_vocals_file_url,
-              enhanced_audio_file_url: file.improved_audio_file_url,
-              fileRemoveNoiseStatus,
-              fileRemoveMelodyStatus,
-              fileRemoveVocalStatus,
-              fileImproveAudioStatus,
-              fileTranscriptionStatus
-            };
-          });
+  const fetchFiles = async () => {
+    try {
+      setLoading(true);
+      
+      const response = await api.get('/user-files/detail');
+      
+      if (response.data && response.data.items) {
+        // Преобразуем данные API в формат, подходящий для компонента
+        const transformedFiles: TranscribedFile[] = response.data.items.map((file: ApiFile) => {
+          console.log(`File ${file.id} improve audio status:`, file.improved_audio_file_status);
           
-          setFiles(transformedFiles);
+          // Преобразование статусов через вспомогательную функцию
+          const fileImproveAudioStatus = mapProcessingStatus(file.improved_audio_file_status);
+          const fileRemoveNoiseStatus = mapProcessingStatus(file.removed_noise_file_status);
+          const fileRemoveMelodyStatus = mapProcessingStatus(file.removed_melody_file_status);
+          const fileRemoveVocalStatus = mapProcessingStatus(file.removed_vocal_file_status); 
+          const fileTranscriptionStatus = mapProcessingStatus(file.transcription_status);
           
-          // Если файлов нет, показываем соответствующее сообщение
-          if (transformedFiles.length === 0) {
-            setError('Нет доступных файлов');
-          } else {
-            setError(null);
-          }
+          console.log(`File ${file.id} mapped improve audio status:`, fileImproveAudioStatus);
+          
+          return {
+            id: file.id.toString(),
+            name: file.display_name,
+            date: new Date(file.created_at),
+            duration: formatDuration(file.duration || 0),
+            audioUrl: file.file_url,
+            status: mapApiStatus(file.status),
+            transcription: file.transcription,
+            transcription_text: file.transcription_text,
+            transcription_vtt: file.transcription_vtt,
+            transcription_srt: file.transcription_srt,
+            fileSize: file.file_size,
+            mimeType: file.mime_type,
+            removedNoiseFileUrl: file.removed_noise_file_url,
+            removedMelodyFileUrl: file.removed_melody_file_url,
+            removedVocalsFileUrl: file.removed_vocals_file_url,
+            enhancedAudioFileUrl: file.improved_audio_file_url,
+            removed_noise_file_url: file.removed_noise_file_url,
+            removed_melody_file_url: file.removed_melody_file_url,
+            removed_vocals_file_url: file.removed_vocals_file_url,
+            enhanced_audio_file_url: file.improved_audio_file_url,
+            fileRemoveNoiseStatus,
+            fileRemoveMelodyStatus,
+            fileRemoveVocalStatus,
+            fileImproveAudioStatus,
+            fileTranscriptionStatus
+          };
+        });
+        
+        setFiles(transformedFiles);
+        
+        // Если файлов нет, показываем соответствующее сообщение
+        if (transformedFiles.length === 0) {
+          setError('Нет доступных файлов');
+        } else {
+          setError(null);
         }
-      } catch (error) {
-        console.error('Error fetching files:', error);
-        setError('Ошибка загрузки файлов');
-        toast.error('Не удалось загрузить файлы');
-      } finally {
-        setLoading(false);
       }
-    };
+    } catch (error) {
+      console.error('Error fetching files:', error);
+      setError('Ошибка загрузки файлов');
+      toast.error('Не удалось загрузить файлы');
+    } finally {
+      setLoading(false);
+    }
+  };
 
+  useEffect(() => {
     fetchFiles();
   }, []);
 
@@ -270,6 +270,34 @@ const MyFiles: React.FC = () => {
     );
   };
 
+  // Handler for newly uploaded files
+  const handleNewFileLoaded = (fileData: any) => {
+    // Получаем новую информацию о только что загруженном файле
+    const newFile: TranscribedFile = {
+      id: fileData.file_id.toString(),
+      name: fileData.display_filename || 'Новый файл',
+      date: new Date(),
+      duration: '00:00', // Длительность может быть неизвестна сразу после загрузки
+      audioUrl: fileData.file_url || '',
+      status: 'processing',
+      fileSize: fileData.file_size,
+      mimeType: fileData.mime_type,
+      fileTranscriptionStatus: 'not started'
+    };
+    console.log('newFile', fileData);
+    // Добавляем файл в общий список
+    setFiles(prevFiles => [newFile, ...prevFiles]);
+    
+    // Уведомление о успешной загрузке
+    toast.success(`Файл "${newFile.name}" успешно загружен и отправлен на обработку`);
+  };
+  
+  // Handler to refresh file list
+  const handleRefreshFiles = async () => {
+    await fetchFiles();
+    toast.success('Список файлов обновлен');
+  };
+
   // Early return if not authenticated to avoid API calls
   if (!isAuthenticated()) {
     return (
@@ -312,6 +340,8 @@ const MyFiles: React.FC = () => {
               files={files}
               selectedFileId={selectedFile?.id || null}
               onFileSelect={handleFileSelect}
+              onNewFileLoaded={handleNewFileLoaded}
+              onRefreshFiles={handleRefreshFiles}
             />
             
             {/* File details panel (audio player, transcription or chat) */}

@@ -1,14 +1,25 @@
-import React, { useState } from 'react';
-import { File, Search, Calendar, SlidersHorizontal } from 'lucide-react';
+import React, { useState, useCallback, useRef } from 'react';
+import { File, Search, Calendar, SlidersHorizontal, Plus, X, AlertCircle, CheckCircle, Clock, FileAudio, Upload } from 'lucide-react';
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
+import { Progress } from "@/components/ui/progress";
 import {
   Popover,
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 import { Calendar as CalendarComponent } from "@/components/ui/calendar";
 import { Badge } from "@/components/ui/badge";
+import { cn } from "@/lib/utils";
+import { toast } from "sonner";
+import api from '@/lib/api';
+import axios, { CancelTokenSource } from 'axios';
 
 // Types for transcribed files
 export interface TranscribedFile {
@@ -43,11 +54,29 @@ export interface TranscribedFile {
   fileImproveAudioStatus?: 'not started' | 'processing' | 'completed' | 'failed';
 }
 
+// New interface for selected file with upload state
+interface SelectedFile {
+  file: File;
+  progress: number;
+  status: 'pending' | 'uploading' | 'completed' | 'error';
+  fileId?: string;
+  cancelToken?: CancelTokenSource;
+}
+
 interface FileListProps {
   files: TranscribedFile[];
   selectedFileId: string | null;
   onFileSelect: (file: TranscribedFile) => void;
+  onNewFileLoaded?: (fileData: any) => void;
+  onRefreshFiles?: () => void;
 }
+
+// Format file size utility
+const formatFileSize = (bytes: number): string => {
+  if (bytes < 1024) return bytes + ' bytes';
+  else if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
+  else return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
+};
 
 // Format date utility
 const formatDate = (date: Date) => {
@@ -58,10 +87,22 @@ const formatDate = (date: Date) => {
   });
 };
 
-const FileList: React.FC<FileListProps> = ({ files, selectedFileId, onFileSelect }) => {
+const FileList: React.FC<FileListProps> = ({ 
+  files, 
+  selectedFileId, 
+  onFileSelect, 
+  onNewFileLoaded,
+  onRefreshFiles
+}) => {
   const [searchTerm, setSearchTerm] = useState('');
   const [filterDate, setFilterDate] = useState<Date | undefined>(undefined);
   const [filterStatus, setFilterStatus] = useState<string | null>(null);
+  const [showUploadPanel, setShowUploadPanel] = useState(false);
+  const [dragActive, setDragActive] = useState(false);
+  const [selectedFiles, setSelectedFiles] = useState<SelectedFile[]>([]);
+  const [isUploading, setIsUploading] = useState(false);
+  
+  const fileInputRef = useRef<HTMLInputElement>(null);
   
   // Filter files based on search term, date, and status
   const filteredFiles = files.filter(file => {
@@ -77,12 +118,285 @@ const FileList: React.FC<FileListProps> = ({ files, selectedFileId, onFileSelect
     setFilterDate(undefined);
     setFilterStatus(null);
   };
+  
+  // Toggle upload panel
+  const toggleUploadPanel = () => {
+    setShowUploadPanel(prev => !prev);
+  };
+  
+  // Handle file selection via input
+  const handleFileSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
+    if (event.target.files) {
+      const newFiles = Array.from(event.target.files).map(file => ({
+        file,
+        progress: 0,
+        status: 'pending' as const
+      }));
+      setSelectedFiles(prev => [...prev, ...newFiles]);
+    }
+  };
+  
+  // Handle drag events
+  const handleDragEnter = useCallback((e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setDragActive(true);
+  }, []);
+
+  const handleDragLeave = useCallback((e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setDragActive(false);
+  }, []);
+
+  const handleDragOver = useCallback((e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+  }, []);
+
+  const handleDrop = useCallback((e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setDragActive(false);
+    
+    if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+      const newFiles = Array.from(e.dataTransfer.files).map(file => ({
+        file,
+        progress: 0,
+        status: 'pending' as const
+      }));
+      setSelectedFiles(prev => [...prev, ...newFiles]);
+    }
+  }, []);
+  
+  // Remove file from upload queue
+  const removeFile = (index: number) => {
+    setSelectedFiles(prev => {
+      const newFiles = [...prev];
+      // Cancel upload if it's in progress
+      if (newFiles[index].cancelToken && newFiles[index].status === 'uploading') {
+        newFiles[index].cancelToken.cancel('Upload canceled by user');
+      }
+      return newFiles.filter((_, i) => i !== index);
+    });
+  };
+  
+  // Upload single file
+  const uploadFile = async (file: SelectedFile, index: number) => {
+    try {
+      const formData = new FormData();
+      formData.append('file', file.file);
+      
+      // Create cancel token
+      const cancelTokenSource = axios.CancelToken.source();
+      
+      // Update file with cancel token
+      setSelectedFiles(prev => prev.map((f, i) => 
+        i === index ? { ...f, cancelToken: cancelTokenSource, status: 'uploading' } : f
+      ));
+      
+      const response = await api.post('/audio/convert/file/', formData, {
+        headers: {
+          'Content-Type': 'multipart/form-data'
+        },
+        cancelToken: cancelTokenSource.token,
+        onUploadProgress: (progressEvent) => {
+          if (progressEvent.total) {
+            const percentCompleted = Math.round((progressEvent.loaded * 100) / progressEvent.total);
+            setSelectedFiles(prev => prev.map((f, i) => 
+              i === index ? { 
+                ...f, 
+                progress: percentCompleted,
+                status: 'uploading'
+              } : f
+            ));
+          }
+        }
+      });
+      
+      // Update file status to completed
+      setSelectedFiles(prev => prev.map((f, i) => 
+        i === index ? { 
+          ...f, 
+          progress: 100,
+          status: 'completed',
+          fileId: response.data.file_id
+        } : f
+      ));
+      
+      // Notify parent about new file
+      if (onNewFileLoaded) {
+        onNewFileLoaded(response.data);
+      }
+      
+      return response.data.file_id;
+    } catch (error) {
+      // Skip canceled uploads
+      if (axios.isCancel(error)) {
+        console.log('Upload canceled:', error.message);
+        return null;
+      }
+      
+      console.error('Error uploading file:', error);
+      setSelectedFiles(prev => prev.map((f, i) => 
+        i === index ? { 
+          ...f, 
+          status: 'error'
+        } : f
+      ));
+      
+      toast.error("Не удалось загрузить файл. Попробуйте еще раз.");
+      
+      return null;
+    }
+  };
+  
+  // Start uploading all pending files
+  const handleUpload = async () => {
+    // Check if there are files to upload
+    const pendingFiles = selectedFiles.filter(file => file.status === 'pending');
+    if (pendingFiles.length === 0) return;
+    
+    setIsUploading(true);
+    
+    // Upload each pending file
+    for (let i = 0; i < selectedFiles.length; i++) {
+      if (selectedFiles[i].status === 'pending') {
+        await uploadFile(selectedFiles[i], i);
+      }
+    }
+    
+    setIsUploading(false);
+    
+    // Refresh files list after all uploads are completed
+    if (onRefreshFiles) {
+      onRefreshFiles();
+      toast.success('Все файлы загружены, список обновлен');
+    }
+  };
+  
+  // Get file icon based on status
+  const getFileIcon = (file: SelectedFile) => {
+    if (file.status === 'error') return <AlertCircle className="text-red-500" size={18} />;
+    if (file.status === 'completed') return <CheckCircle className="text-green-500" size={18} />;
+    if (file.status === 'uploading') return <Clock className="text-blue-500 animate-pulse" size={18} />;
+    return <FileAudio className="text-gray-500" size={18} />;
+  };
+  
+  // Get status text based on file status
+  const getStatusText = (file: SelectedFile) => {
+    switch (file.status) {
+      case 'error': return <span className="text-red-500 text-xs">Ошибка</span>;
+      case 'completed': return <span className="text-green-500 text-xs">Готово</span>;
+      case 'uploading': return <span className="text-blue-500 text-xs">{file.progress}%</span>;
+      default: return <span className="text-gray-500 text-xs">В очереди</span>;
+    }
+  };
 
   return (
     <div className="w-full md:w-1/3 border rounded-lg shadow-sm overflow-hidden flex flex-col h-full">
-      <div className="p-4 border-b">
+      <div className="p-4 border-b flex justify-between items-center">
         <h3 className="font-medium">Расшифрованные файлы</h3>
+        <TooltipProvider>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button variant="ghost" size="icon" onClick={toggleUploadPanel} className="h-8 w-8">
+                <Plus className="h-4 w-4" />
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent>
+              <p>Добавить файл</p>
+            </TooltipContent>
+          </Tooltip>
+        </TooltipProvider>
       </div>
+      
+      {/* Upload panel */}
+      {showUploadPanel && (
+        <div className="p-3 border-b animate-in fade-in-0 duration-200">
+          <div 
+            className={cn(
+              "border-2 border-dashed rounded-lg p-6 transition-colors",
+              dragActive ? "border-primary bg-primary/5" : "border-gray-200 hover:border-gray-300"
+            )}
+            onDragEnter={handleDragEnter}
+            onDragLeave={handleDragLeave}
+            onDragOver={handleDragOver}
+            onDrop={handleDrop}
+          >
+            <p className="text-center text-gray-600 mb-4">Перетащите файлы или нажмите кнопку</p>
+            
+            <input
+              type="file"
+              multiple
+              accept="audio/*,video/*"
+              className="hidden"
+              ref={fileInputRef}
+              onChange={handleFileSelect}
+            />
+            
+            <Button 
+              variant="outline" 
+              className="w-full bg-black hover:bg-[#F97316] text-white hover:text-white "
+              onClick={() => fileInputRef.current?.click()}
+            >
+              Загрузить файлы
+            </Button>
+          </div>
+        </div>
+      )}
+      
+      {/* Selected files for upload */}
+      {selectedFiles.length > 0 && (
+        <div className="p-3 border-b animate-in fade-in-0 duration-200">
+          <div className="flex justify-between items-center mb-2">
+            <h4 className="text-sm font-medium">Загрузка ({selectedFiles.length})</h4>
+            <Button 
+              variant="default" 
+              size="sm" 
+              onClick={handleUpload} 
+              disabled={isUploading || !selectedFiles.some(f => f.status === 'pending')}
+              className="h-7"
+            >
+              {isUploading ? "Загрузка..." : "Загрузить"}
+            </Button>
+          </div>
+          
+          <div className="space-y-2 max-h-44 overflow-y-auto pr-1">
+            {selectedFiles.map((file, index) => (
+              <div key={`upload-${index}`} className="relative bg-gray-50 rounded-lg p-3">
+                <div className="flex items-center justify-between mb-2">
+                  <div className="flex items-center space-x-2">
+                    {getFileIcon(file)}
+                    <div className="flex flex-col">
+                      <span className="text-sm font-medium truncate max-w-[150px]">
+                        {file.file.name}
+                      </span>
+                      <div className="flex items-center space-x-2">
+                        <span className="text-xs text-gray-500">
+                          {formatFileSize(file.file.size)}
+                        </span>
+                        {getStatusText(file)}
+                      </div>
+                    </div>
+                  </div>
+                  
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-7 w-7 text-gray-400 hover:text-red-500 hover:bg-red-50"
+                    onClick={() => removeFile(index)}
+                    disabled={file.status === 'completed'}
+                  >
+                    <X className="h-4 w-4" />
+                  </Button>
+                </div>
+                <Progress value={file.progress} className="h-1.5" />
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
       
       {/* Search and filter controls */}
       <div className="p-3 border-b">

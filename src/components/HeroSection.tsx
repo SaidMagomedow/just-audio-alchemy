@@ -465,7 +465,7 @@ const HeroSection = () => {
               className="w-full py-5 text-lg bg-black hover:bg-accent-orange hover:text-white rounded-lg transition-all"
               onClick={() => document.getElementById('file-upload')?.click()}
             >
-              Загрузить файл
+              Загрузить файлы
             </Button>
           </div>
 
