@@ -67,34 +67,6 @@ const HeroSection = () => {
     fetchUserPlan();
   }, []);
 
-  // Загрузка файлов в обработке при монтировании компонента
-  useEffect(() => {
-    const fetchProcessingFiles = async () => {
-      try {
-        // Используем наш API интерцептор
-        const response = await api.get('/user-files', {
-          params: {
-            status: 'uploaded'
-          }
-        });
-        
-        if (response.data && response.data.items) {
-          setProcessingFiles(response.data.items);
-        }
-      } catch (error) {
-        console.error('Error fetching processing files:', error);
-        toast({
-          title: "Ошибка загрузки", 
-          description: "Не удалось загрузить обрабатываемые файлы.",
-          variant: "destructive",
-        });
-      }
-    };
-    // Загружаем файлы для обработки если пользователь аутентифицирован
-    if (isAuthenticated()) {
-      fetchProcessingFiles();
-    }
-  }, []);
 
   const handleFileSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
     if (event.target.files) {
